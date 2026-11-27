@@ -1,0 +1,220 @@
+<div class="overlays" data-room="overlays">
+<div class="recbar" x-show="rec.active || rec.busy" x-cloak role="status">
+  <span class="dot" :class="{busy: rec.busy}"></span><b x-text="rec.active ? 'Recording ' + rec.elapsed : 'Saving…'"></b>
+  <select x-model="rec.kind" aria-label="What is this?"><option value="lecture">Lecture</option><option value="meeting">Meeting</option><option value="note">Note to self</option></select>
+  <input x-model="rec.title" placeholder="Title (optional)" aria-label="Title" />
+  <button class="btn sm danger" x-show="rec.active" @click="recStop()">Stop and save</button>
+</div>
+
+<div class="toast" x-show="pushMsg" x-cloak role="status"><svg class="ic"><use href="#i-alert"/></svg><span class="grow" x-text="pushMsg"></span><button class="round" style="width:28px;height:28px" @click="pushMsg = ''" aria-label="Dismiss"><svg class="ic sm"><use href="#i-x"/></svg></button></div>
+
+<div class="veil modal-veil" x-show="modal" x-cloak @click.self="closeModal()" @keydown.escape.window="closeModal()" role="dialog" aria-modal="true">
+  <div class="sheet" :class="{wide: modal && (modal.type === 'trace' || modal.type === 'shots' || modal.type === 'capability')}">
+    <template x-if="modal && modal.type === 'trace' && !modal.row">
+      <div><div class="top"><h3 class="grow">Opening the run…</h3><button class="round" @click="closeModal()" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div></div>
+    </template>
+    <template x-if="modal && modal.type === 'trace' && modal.row">
+      <div class="trace">
+        <div class="top"><span class="mono-av" :style="avStyle(modal.row.episode.agent)" x-text="monogram(modal.row.episode.agent)"></span>
+          <div class="grow"><h3 x-text="traceTitle(modal.row)"></h3>
+            <div class="row-meta"><span x-text="fmtWhen(modal.row.episode.started_at)"></span><span class="sep"></span><span x-text="traceDuration(modal.row.episode)"></span><span class="sep"></span><span x-text="plural(modal.row.episode.turns || 0, 'turn')"></span><span class="sep"></span><span x-text="plural(modal.row.steps.length, 'tool call')"></span><span class="sep"></span><span x-text="fmtMoney(modal.row.cost.usd)"></span></div></div>
+          <button class="round" @click="closeModal()" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+        <div class="flags" x-show="modal.row.flags.length"><template x-for="f in modal.row.flags" :key="f"><span class="tag" :class="traceTone(f)" x-text="f"></span></template></div>
+        <section x-show="modal.row.trigger"><h4>Why it ran</h4>
+          <div class="muted" style="font-size:var(--fs-2)" x-text="'Dispatched by ' + (modal.row.trigger ? modal.row.trigger.by : '')"></div>
+          <pre class="block" x-text="modal.row.trigger ? modal.row.trigger.task : ''"></pre></section>
+        <section><h4>What it did</h4>
+          <template x-if="!modal.row.steps.length"><div class="muted" style="font-size:var(--fs-2)">No tool calls: the model answered from what it was given.</div></template>
+          <ol class="tl"><template x-for="s in modal.row.steps" :key="s.id">
+            <li><span class="t" x-text="fmtTime(s.at)"></span>
+              <div><div class="h"><b x-text="s.tool"></b>
+                  <span class="tag urgent" x-show="!s.ok">error</span>
+                  <span class="tag soon" x-show="s.gated" x-text="'approved by ' + s.approved_by"></span>
+                  <button class="link" @click="s._open = !s._open" x-text="s._open ? 'Hide' : 'Details'"></button></div>
+                <div class="err" x-show="s.error" x-text="s.error"></div>
+                <template x-if="s._open"><div>
+                  <div class="faint" style="font-size:var(--fs-2);margin-top:6px">Input</div><pre class="block" x-text="pretty(s.input)"></pre>
+                  <template x-if="s.result !== null && s.result !== undefined"><div><div class="faint" style="font-size:var(--fs-2);margin-top:6px">Result</div><pre class="block" x-text="pretty(s.result)"></pre></div></template>
+                </div></template></div></li>
+          </template></ol></section>
+        <section x-show="modal.row.ledger.length || modal.row.approvals.length"><h4>What it was held back from</h4>
+          <template x-for="r in modal.row.ledger" :key="r.key"><div class="row-meta"><b style="color:var(--t1)" x-text="r.tool"></b><span class="sep"></span><span x-text="ledgerLabel(r.status)"></span><template x-if="r.attempts > 1"><span><span class="sep"></span><span x-text="plural(r.attempts, 'attempt')"></span></span></template></div></template>
+          <template x-for="a in modal.row.approvals" :key="a.id"><div class="row-meta"><span x-text="a.action_summary"></span><span class="sep"></span><span class="tag" :class="a.status === 'approved' ? 'green' : a.status === 'rejected' ? 'urgent' : 'soon'" x-text="a.status + (a.decided_by ? ' by ' + a.decided_by : '')"></span></div></template></section>
+        <section x-show="modal.row.skills.length || modal.row.project"><h4>What shaped it</h4>
+          <div class="row-meta" x-show="modal.row.project"><span x-text="'Project: ' + (modal.row.project ? modal.row.project.name : '')"></span></div>
+          <template x-for="k in modal.row.skills" :key="k.id"><div class="row-meta"><span x-text="'Playbook: ' + k.title"></span><span class="sep"></span><span x-text="k.status"></span></div></template></section>
+        <section x-show="modal.row.episode.result || modal.row.produced.lessons.length || modal.row.produced.facts.length || modal.row.produced.decisions.length || modal.row.produced.children.length"><h4>What came out</h4>
+          <pre class="block" x-show="modal.row.episode.result" x-text="modal.row.episode.result"></pre>
+          <template x-for="l in modal.row.produced.lessons" :key="l.id"><div class="row-meta"><span x-text="'Lesson: ' + l.content"></span></div></template>
+          <template x-for="f in modal.row.produced.facts" :key="f.id"><div class="row-meta"><span x-text="'Remembered: ' + f.content"></span></div></template>
+          <template x-for="d in modal.row.produced.decisions" :key="d.id"><div class="row-meta"><span x-text="'Decision: ' + d.summary"></span></div></template>
+          <template x-for="c in modal.row.produced.children" :key="c.id"><div class="row-meta"><button class="link" @click="openTrace(c.id)" x-text="'Dispatched ' + agentName(c.agent_name) + ': ' + (c.summary || '')"></button></div></template></section>
+        <section><h4>Cost</h4><div class="row-meta"><span x-text="modal.row.cost.model"></span><span class="sep"></span><span x-text="traceTokens(modal.row.cost.tokens)"></span><span class="sep"></span><span x-text="fmtMoney(modal.row.cost.usd)"></span></div></section>
+        <div class="actions" style="margin-top:16px">
+          <template x-if="modal.row.feedback.length"><span class="tag" :class="modal.row.feedback[modal.row.feedback.length - 1].verdict === 'good' ? 'green' : 'urgent'" x-text="'Rated ' + modal.row.feedback[modal.row.feedback.length - 1].verdict"></span></template>
+          <template x-if="!modal.row.feedback.length"><span class="rate" style="margin:0"><button @click="rateTrace('good')" title="This run was useful"><svg class="ic sm"><use href="#i-thumb"/></svg>Good</button><button class="bad" @click="rateTrace('bad')" title="This run was not"><svg class="ic sm"><use href="#i-thumb"/></svg>Bad</button></span></template>
+          <span class="grow"></span>
+          <button class="btn sm ghost" @click="copyText(location.origin + '/#run/' + modal.row.episode.id, modal.row)">Copy link</button>
+        </div>
+      </div>
+    </template>
+    <template x-if="modal && modal.type === 'replay' && !modal.row">
+      <div><div class="top"><h3 class="grow">Cutting the film…</h3><button class="round" @click="closeModal()" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div></div>
+    </template>
+    <template x-if="modal && modal.type === 'replay' && modal.row">
+      <div class="trace replay">
+        <div class="top"><span class="orb sm" aria-hidden="true"></span>
+          <div class="grow"><h3 x-text="'The night of ' + modal.row.night"></h3>
+            <div class="row-meta"><span x-text="plural(modal.row.totals.events, 'event')"></span><span class="sep"></span><span x-text="plural(modal.row.totals.runs, 'run')"></span><span class="sep"></span><span x-text="plural(modal.row.totals.tool_calls, 'tool call')"></span><span class="sep"></span><span x-text="plural(modal.row.totals.approvals_asked, 'approval')"></span><span class="sep"></span><span x-text="plural(modal.row.totals.screenshots, 'screenshot')"></span><span class="sep"></span><span x-text="fmtMoney(modal.row.totals.cost)"></span></div></div>
+          <button class="round" @click="closeModal()" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+        <template x-if="!modal.row.timeline.length"><div class="empty" style="margin-top:14px"><span class="ei"><svg class="ic"><use href="#i-clock"/></svg></span><div><b>Nothing happened in this window.</b>The film covers 22:00 to 09:00 of the night you pick.</div></div></template>
+        <template x-if="modal.row.timeline.length && replayEvent()"><div>
+          <div class="stage">
+            <div class="clock" x-text="fmtTime(replayEvent().at) + ' · ' + (replay.i + 1) + ' of ' + modal.row.timeline.length"></div>
+            <div class="who"><span class="mono-av" :style="avStyle(replayEvent().agent || 'ceo')" x-text="monogram(replayEvent().agent || 'ceo')"></span>
+              <div class="grow"><div class="big"><span class="k" x-text="eventLabel(replayEvent())"></span> <b x-text="replayEvent().title"></b></div>
+                <div class="muted" style="margin-top:4px;white-space:pre-wrap" x-text="replayEvent().detail"></div>
+                <template x-if="replayEvent().data && replayEvent().data.cost"><div class="faint" style="font-size:var(--fs-2);margin-top:4px" x-text="'cost ' + fmtMoney(replayEvent().data.cost)"></div></template></div>
+              <button class="link" x-show="replayEvent().episode_id" @click="openTrace(replayEvent().episode_id)">Why?</button></div>
+            <template x-if="replayEvent().kind === 'submit.shot' && replayEvent().data && replayEvent().data.url"><img :src="replayEvent().data.url" alt="Screenshot" /></template>
+          </div>
+          <div class="controls">
+            <button class="btn sm" @click="replayPause(); replayGo(replay.i - 1)" aria-label="Previous">‹</button>
+            <button class="btn sm primary" @click="replay.playing ? replayPause() : replayPlay()" x-text="replay.playing ? 'Pause' : (replay.i >= modal.row.timeline.length - 1 ? 'Replay' : 'Play')"></button>
+            <button class="btn sm" @click="replayPause(); replayGo(replay.i + 1)" aria-label="Next">›</button>
+            <input type="range" min="0" :max="modal.row.timeline.length - 1" :value="replay.i" @input="replayPause(); replayGo(Number($event.target.value))" aria-label="Scrub" />
+          </div>
+        </div></template>
+        <section x-show="modal.row.tasks.length"><h4>Tasks that night</h4>
+          <template x-for="t in modal.row.tasks" :key="t.id"><div class="row-meta"><b style="color:var(--t1)" x-text="t.title"></b><span class="sep"></span><span x-text="agentName(t.agent)"></span><span class="sep"></span><span class="tag" :class="nightTone(t.status)" x-text="nightLabel(t.status)"></span></div></template></section>
+        <div class="actions" style="margin-top:16px"><span class="faint" style="font-size:var(--fs-2)" x-text="(modal.row.totals.agents || []).map(a => agentName(a)).join(', ')"></span><span class="grow"></span><button class="btn sm ghost" @click="copyText(location.origin + '/#replay/' + modal.row.night, modal.row)">Copy link</button></div>
+      </div>
+    </template>
+    <template x-if="modal && modal.type === 'recording'">
+      <div class="trace">
+        <div class="top"><span class="mono-av" :style="avStyle(recAgent(modal.row.kind))" x-text="monogram(recAgent(modal.row.kind))"></span>
+          <div class="grow"><h3 x-text="modal.row.title"></h3>
+            <div class="row-meta"><span x-text="modal.row.kind"></span><span class="sep"></span><span x-text="fmtWhen(modal.row.created_at)"></span><template x-if="modal.row.duration_s"><span><span class="sep"></span><span x-text="Math.round(modal.row.duration_s / 60) + ' min'"></span></span></template></div></div>
+          <button class="round" @click="closeModal()" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+        <audio controls preload="none" style="width:100%;margin-top:12px" :src="'/api/recordings/' + modal.row.id + '/audio'"></audio>
+        <section x-show="modal.row.action_items && modal.row.action_items.length"><h4>Action items</h4>
+          <template x-for="(it, i) in modal.row.action_items" :key="i"><div class="row-meta"><span x-text="it.text"></span><template x-if="it.due"><span><span class="sep"></span><span x-text="'due ' + it.due"></span></span></template></div></template></section>
+        <section><h4>Notes</h4><div class="body" x-text="modal.row.notes || '(no notes yet)'"></div></section>
+        <section><h4>Transcript</h4><details><summary class="link">Show the transcript</summary><div class="body" style="font-size:var(--fs-2)" x-text="modal.row.transcript || ''"></div></details></section>
+        <div class="actions" style="margin-top:16px"><button class="btn sm ghost" x-show="modal.row.notes" @click="copyText(modal.row.notes, modal.row)">Copy notes</button><span class="grow"></span><button class="btn sm ghost" x-show="modal.row.episode_id" @click="openTrace(modal.row.episode_id)">Why these notes?</button></div>
+      </div>
+    </template>
+    <template x-if="modal && modal.type === 'approval'">
+      <div>
+        <div class="top"><span class="mono-av" :style="avStyle(modal.row.agent_name)" x-text="monogram(modal.row.agent_name)"></span><h3 class="grow" x-text="modal.row.action_summary"></h3><button class="round" @click="closeModal()" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+        <div class="row-meta"><span x-text="modal.row.agent_name"></span><span class="sep"></span><span x-text="modal.row.status"></span><span class="sep"></span><span x-text="'expires ' + fmtWhen(modal.row.expires_at)"></span></div>
+        <pre class="block" x-text="pretty(modal.row.action_payload)"></pre>
+        <div class="actions" x-show="modal.row.status === 'pending'" style="margin-top:16px">
+          <template x-if="modal.row._busy"><span class="status-txt">Deciding…</span></template>
+          <template x-if="!modal.row._busy"><span class="actions" style="margin:0">
+            <button class="btn amber big" @click="decide(modal.row, 'approved', true)">Approve</button>
+            <button class="btn danger big" @click="decide(modal.row, 'rejected', true)">Deny</button>
+          </span></template>
+        </div>
+        <template x-if="modal.row._err"><div class="status-txt err" x-text="modal.row._err"></div></template>
+      </div>
+    </template>
+    <template x-if="modal && modal.type === 'brief'">
+      <div>
+        <div class="top"><span class="orb sm" aria-hidden="true"></span><h3 class="grow" x-text="briefLabel(modal.row.kind)"></h3><button class="round" @click="closeModal()" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+        <div class="row-meta" x-text="fmtWhen(modal.row.created_at)"></div>
+        <div class="body" x-text="modal.row.body"></div>
+      </div>
+    </template>
+    <!-- A capability version for review (core/capabilities/): the procedure, its evidence, its claims. -->
+    <template x-if="modal && modal.type === 'capability'">
+      <div class="capv">
+        <div class="top"><h3 class="grow" x-text="modal.v.title + ' (v' + modal.v.version + ')'"></h3>
+          <button class="round" @click="closeModal()" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+        <div class="row-meta">
+          <a :href="modal.v.source_url" target="_blank" rel="noopener" x-text="modal.v.source_title || modal.v.source_url"></a>
+          <span class="sep"></span><span x-text="capCheckLabel(modal.v.check_status)"></span>
+          <span class="sep"></span><span>not practically tested</span>
+          <template x-if="!modal.v.complete"><span><span class="sep"></span><span class="tag urgent">incomplete</span></span></template>
+          <span class="sep"></span><span x-text="modal.v.review ? modal.v.review : 'not reviewed'"></span></div>
+        <p class="capv-sum" x-text="modal.v.body.summary"></p>
+        <template x-if="(modal.v.body.prerequisites || []).length"><div><h4>Before you start</h4>
+          <ul><template x-for="(s, i) in modal.v.body.prerequisites" :key="'p' + i"><li><span x-text="s.text"></span>
+            <template x-for="r in s.evidence" :key="r"><button class="ev" @click="capShow(r)" x-text="r"></button></template></li></template></ul></div></template>
+        <h4>Steps</h4>
+        <ol><template x-for="(s, i) in (modal.v.body.steps || [])" :key="'s' + i"><li><span x-text="s.text"></span>
+          <template x-if="!s.grounded"><span class="tag urgent">not in the source</span></template>
+          <template x-for="r in s.evidence" :key="r"><button class="ev" @click="capShow(r)" x-text="r"></button></template></li></template></ol>
+        <template x-if="(modal.v.body.limitations || []).length"><div><h4>Limits</h4>
+          <ul><template x-for="(t, i) in modal.v.body.limitations" :key="'l' + i"><li x-text="t"></li></template></ul></div></template>
+        <template x-if="(modal.v.body.missing || []).length"><div><h4>Not in the source</h4>
+          <ul><template x-for="(t, i) in modal.v.body.missing" :key="'m' + i"><li x-text="t"></li></template></ul></div></template>
+        <template x-if="modal.ev"><div class="capv-ev">
+          <div class="row-meta"><b x-text="modal.ev.ref"></b><span class="sep"></span><span x-text="modal.ev.kind"></span>
+            <span class="sep"></span><span x-text="modal.ev.extraction"></span>
+            <template x-if="modal.ev.start_s != null"><span><span class="sep"></span><span x-text="capTime(modal.ev.start_s)"></span></span></template>
+            <template x-if="modal.ev.url"><span><span class="sep"></span><a :href="modal.ev.url" target="_blank" rel="noopener">source</a></span></template></div>
+          <template x-if="modal.ev.file_url && modal.ev.file_present"><img :src="modal.ev.file_url" :alt="'Frame ' + modal.ev.ref" /></template>
+          <template x-if="modal.ev.file_url && !modal.ev.file_present"><div class="status-txt err">The frame file is missing from this laptop.</div></template>
+          <pre class="block" x-show="modal.ev.text" x-text="modal.ev.text"></pre>
+          <template x-if="modal.ev.meta && modal.ev.meta.error"><div class="status-txt err" x-text="'Could not read it: ' + modal.ev.meta.error"></div></template></div></template>
+        <h4>Claims</h4>
+        <template x-if="!modal.claims.length"><div class="faint">No actionable claims were found.</div></template>
+        <template x-for="c in modal.claims" :key="c.id"><div class="pi">
+          <div class="t"><span x-text="c.text"></span>
+            <span class="pr" x-text="['found: ' + capFidelity(c.fidelity), 'checked: ' + capVerdict(c.verdict), c.consequential ? 'consequential' : '', c.checked_url ? 'per ' + c.checked_url : ''].filter(Boolean).join(' · ')"></span>
+            <template x-if="c.excerpt"><span class="pr" x-text="'“' + c.excerpt + '”'"></span></template></div>
+          <template x-for="r in c.evidence_refs" :key="r"><button class="ev" @click="capShow(r)" x-text="r"></button></template></div></template>
+        <div class="actions" style="margin-top:14px">
+          <template x-if="modal.busy"><span class="status-txt" x-text="modal.busy"></span></template>
+          <template x-if="!modal.busy"><span class="actions" style="margin:0">
+            <button class="btn primary" x-show="modal.v.review !== 'approved'" @click="reviewCapability('approved')">Approve for agents</button>
+            <button class="btn" x-show="modal.v.review === 'approved' && !modal.exported" @click="claudeInstall()" title="Writes it to ~/.claude/skills as a skill Claude Code can use">Install in Claude Code</button>
+            <button class="btn ghost" x-show="modal.exported" @click="claudeRemove()">Remove from Claude Code</button>
+            <button class="btn danger" x-show="modal.v.review === 'approved'" @click="reviewCapability('withdrawn')">Withdraw</button>
+          </span></template>
+          <span class="status-txt err" x-show="modal.err" x-text="modal.err"></span>
+          <span class="status-txt" x-show="modal.done" x-text="modal.done"></span>
+        </div>
+        <div class="faint" style="font-size:var(--fs-2);margin-top:8px">Approving lets the CTO look it up as reference. It never changes what any agent may do. Withdrawing keeps the history and removes it from Claude Code.</div>
+      </div>
+    </template>
+    <!-- The filled form, page by page at its own width, so every field reads. -->
+    <template x-if="modal && modal.type === 'shots'">
+      <div>
+        <div class="top"><h3 class="grow" x-text="modal.title"></h3>
+          <span class="faint" style="font-size:var(--fs-2)" x-text="modal.pages.length === 1 ? '' : modal.pages.length + ' pages, top to bottom'"></span>
+          <button class="round" @click="closeModal()" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+        <div class="row-meta" x-text="modal.note"></div>
+        <div class="shots">
+          <template x-for="(u, i) in modal.pages" :key="u">
+            <figure><img :src="u" :alt="modal.title + ', page ' + (i + 1)" loading="lazy" />
+              <figcaption><span x-text="'Page ' + (i + 1) + ' of ' + modal.pages.length"></span> · <a :href="u" target="_blank" rel="noopener">open full size</a></figcaption></figure>
+          </template>
+        </div>
+      </div>
+    </template>
+    <template x-if="modal && modal.type === 'notification'">
+      <div>
+        <div class="top"><h3 class="grow" x-text="modal.row.title"></h3><button class="round" @click="closeModal()" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button></div>
+        <div class="row-meta"><span x-text="kindLabel(modal.row.kind)"></span><span class="sep"></span><span x-text="fmtWhen(modal.row.created_at)"></span></div>
+        <div class="body" x-text="modal.row.body"></div>
+      </div>
+    </template>
+  </div>
+</div>
+
+<div class="veil palette-veil" x-show="paletteOpen" x-cloak @click.self="closePalette()" @keydown.escape.window="closePalette()" role="dialog" aria-modal="true" aria-label="Command palette">
+  <div class="palette" @keydown.arrow-down.prevent="paletteMove(1)" @keydown.arrow-up.prevent="paletteMove(-1)" @keydown.enter.prevent="paletteSelect()">
+    <div class="pin"><svg class="ic lg"><use href="#i-search"/></svg><input x-ref="paletteInput" type="text" placeholder="Search memory, views, agents and commands" x-model="paletteQuery" @input="paletteIdx = 0; searchMemory()" aria-label="Command" /><span class="kbd">esc</span></div>
+    <div class="plist" role="listbox">
+      <template x-if="paletteFiltered().length === 0"><div class="pempty">Nothing matches. Try a different word.</div></template>
+      <template x-for="(p, i) in paletteFiltered()" :key="p.id">
+        <button class="pitem" :class="{selected: i === paletteIdx}" role="option" :aria-selected="String(i === paletteIdx)" @mouseenter="paletteIdx = i" @click="paletteSelect()">
+          <span class="pi"><svg class="ic sm"><use :href="'#i-' + (p.icon || 'arrow')"/></svg></span><span class="l" x-text="p.label"></span><span class="h" x-text="p.hint || p.kind"></span>
+        </button>
+      </template>
+    </div>
+  </div>
+</div>
+</div>

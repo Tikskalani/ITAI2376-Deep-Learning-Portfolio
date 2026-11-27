@@ -1,0 +1,48 @@
+# The privacy gate's rules (core/privacy.py, docs/privacy.md).
+#
+# Copy to data/model_exclude.yaml (gitignored) and fill it in there. This
+# example holds no real names. Atlas re-reads the file within a minute of an
+# edit; nothing needs a restart except the ATLAS_MAIL_MODEL_READS switch.
+#
+# What a rule does: mail, a calendar event or a GitHub repo that matches any
+# rule is PRIVATE. It is stored with no body and the subject
+# "Private message (<label>)", it is scored by rules instead of a model, and no
+# model ever sees its sender, subject or body. The brief only counts it per
+# label: "Private mail Atlas did not read: dental clients 3."
+# Exclusion beats every other rule, including the known-people list.
+
+rules:
+  - label: dental clients            # what the brief and the placeholder say; never an address
+    senders:                         # exact addresses, case-insensitive
+      - frontdesk@example-dental.com
+    domains:                         # suffix match: example-dental.com also covers mail.example-dental.com
+      - example-dental.com
+    labels:                          # Gmail label names, case-insensitive (e.g. one a Gmail filter applies)
+      - atlas-private
+    recipients_domains:              # mail you sent or were copied on, matched by To/Cc domain
+      - example-dental.com
+    calendar:
+      attendee_domains:              # an event with an organizer or attendee at these domains
+        - example-dental.com
+      title_keywords:                # an event whose title contains one of these words
+        - patient
+    github:
+      orgs: []                       # every repo of these owners ("some-client")
+      repos: []                      # single repos ("owner/name")
+
+  - label: employer
+    domains:
+      - example-employer.com
+
+# The content screen: local regexes (no model) that mark a message private when
+# its own text looks like patient data: an SSN-shaped number, "DOB" or "date of
+# birth", "MRN" or "medical record", "patient" next to a name, a member,
+# subscriber, policy or insurance ID label. It only keeps the message from
+# models; the message is still stored (with no body) and shown to you.
+content_screen: true
+
+# Safe-start. Model reads of mail, calendar and GitHub content need BOTH this
+# and ATLAS_MAIL_MODEL_READS=true in .env. Leave false until the exclusion
+# preview (python -m scripts.exclusion_preview, in your own terminal) shows the
+# rules catch what they should. Canvas is not affected.
+mail_model_reads: false

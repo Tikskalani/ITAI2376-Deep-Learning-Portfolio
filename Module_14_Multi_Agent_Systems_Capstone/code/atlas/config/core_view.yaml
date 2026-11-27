@@ -1,0 +1,18 @@
+# The Today room's ring (core/core_view.py, core/web/static/atlas/neural-core.js).
+#
+# Clockwise from the top. Only registered agents are drawn; a registered
+# agent missing here is added at the end under its own id, so a new agent
+# shows up without a code change. The ring spaces any count from 4 to 12.
+ring:
+  - {id: coo, name: COO}
+  - {id: cto, name: CTO}
+  - {id: career, name: Career}
+  - {id: client_delivery, name: Client delivery}
+  - {id: academic, name: Academic}
+  - {id: news_discovery, name: News}
+  - {id: cfo, name: Finance}
+  - {id: personal_ops, name: Personal ops}
+  - {id: property_ops, name: Property}
+  - {id: build, name: Build}
+  - {id: opportunity_scout, name: Scout}
+  - {id: ceo, name: CEO}

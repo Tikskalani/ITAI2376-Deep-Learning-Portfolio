@@ -1,0 +1,18 @@
+{"id": "p1", "title": "Forward Deployed Engineer", "location": "Remote - US", "remote": true, "salary_max": 220000, "keep": true}
+{"id": "p2", "title": "Senior AI Solutions Engineer", "location": "Houston, TX", "remote": false, "salary_max": null, "keep": true}
+{"id": "p3", "title": "Applied AI Engineer", "location": "New York; Remote", "remote": true, "salary_max": 200000, "keep": true}
+{"id": "p4", "title": "Solutions Engineer", "location": "Austin, Texas", "remote": false, "salary_max": 160000, "keep": true}
+{"id": "p5", "title": "AI Engineer, Agents", "location": "Remote (US or Canada)", "remote": true, "salary_max": 180000, "keep": true}
+{"id": "p6", "title": "Machine Learning Engineer", "location": "Remote", "remote": null, "salary_max": null, "keep": true}
+{"id": "p7", "title": "Account Executive, AI", "location": "Remote - US", "remote": true, "salary_max": 150000, "keep": false}
+{"id": "p8", "title": "Director, Applied AI", "location": "Remote - US", "remote": true, "salary_max": 300000, "keep": false}
+{"id": "p9", "title": "Applied AI Engineer", "location": "London, UK", "remote": false, "salary_max": null, "keep": false}
+{"id": "p10", "title": "Forward Deployed Engineer", "location": "San Francisco, CA", "remote": false, "salary_max": 250000, "keep": false}
+{"id": "p11", "title": "AI Engineer", "location": "Remote", "remote": true, "salary_max": 80000, "keep": false}
+{"id": "p12", "title": "Backend Engineer", "location": "Remote - US", "remote": true, "salary_max": 200000, "keep": false}
+{"id": "p13", "title": "Solutions Engineer", "location": "Remote - EMEA", "remote": true, "salary_max": null, "keep": false}
+{"id": "p14", "title": "Engineering Manager, AI Platform", "location": "Houston, TX", "remote": false, "salary_max": 230000, "keep": false}
+{"id": "p15", "title": "AI Engineer Intern", "location": "Remote - US", "remote": true, "salary_max": null, "keep": false}
+{"id": "p16", "title": "Forward Deployed Engineer", "location": "Remote - Americas", "remote": true, "salary_max": null, "keep": true}
+{"id": "p17", "title": "Senior Applied AI Engineer", "location": "Dallas, TX", "remote": false, "salary_max": 190000, "keep": true}
+{"id": "p18", "title": "Customer Support Agent", "location": "Remote - US", "remote": true, "salary_max": 50000, "keep": false}

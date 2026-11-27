@@ -1,0 +1,213 @@
+<section class="room" data-room="plan" x-show="room === 'plan'" x-cloak aria-label="Plan">
+  <div class="room-head"><h1 class="room-title">Plan</h1>
+    <div class="subnav" role="tablist" aria-label="Plan">
+      <button role="tab" :aria-selected="String(sub.plan === 'week')" @click="goRoom('plan', 'week')">Week <span class="badge acc" x-show="plan && plan.counts ? (plan.counts.overdue || plan.counts.today) : 0" x-text="plan && plan.counts ? (plan.counts.overdue || plan.counts.today) : 0"></span></button>
+      <button role="tab" :aria-selected="String(sub.plan === 'night')" @click="goRoom('plan', 'night')">Night shift <span class="badge acc" x-show="nightOpen().length" x-text="nightOpen().length"></span></button>
+      <button role="tab" :aria-selected="String(sub.plan === 'routines')" @click="goRoom('plan', 'routines')">Routines <span class="badge acc" x-show="plan ? (plan.rules || []).length : 0" x-text="plan ? (plan.rules || []).length : 0"></span></button>
+    </div>
+  </div>
+  <div class="sub" data-sub="week" x-show="sub.plan === 'week'">
+      <form class="quick" @submit.prevent="quickAdd()">
+        <svg class="ic"><use href="#i-cal"/></svg>
+        <input type="text" x-model="quick.text" @input="quickHint()" :disabled="quick.busy" enterkeyhint="done" autocomplete="off"
+               placeholder="Add a task the way you'd say it: “Email the lender by Friday 3pm #kirkdale”" aria-label="Add a task" />
+        <button class="btn sm primary" type="submit" :disabled="quick.busy || !quick.text.trim()" x-text="quick.busy ? 'Adding…' : 'Add'"></button>
+      </form>
+      <div class="quick-hint" aria-live="polite">
+        <template x-if="quick.err"><span class="status-txt err" x-text="quick.err"></span></template>
+        <template x-if="!quick.err && quick.hint && quick.text.trim()"><span>
+          <b x-text="quick.hint.title || '…'"></b>
+          <span x-show="quick.hint.rule" x-text="' · repeats ' + (quick.hint.rule || '') + (quick.hint.date ? ', next ' + fmtDay(quick.hint.date) : '')"></span>
+          <span x-show="!quick.hint.rule && quick.hint.date"> · <span x-text="fmtDay(quick.hint.date)"></span></span>
+          <span x-show="quick.hint.time" x-text="' ' + (quick.hint.time || '')"></span>
+          <span x-show="!quick.hint.rule && !quick.hint.date"> · someday</span>
+          <span x-show="quick.hint.project" x-text="' · #' + quick.hint.project"></span>
+          <span x-show="quick.hint.priority === 'high'" class="tag urgent" style="margin-left:6px">high</span>
+        </span></template>
+        <template x-if="!quick.err && !(quick.hint && quick.text.trim())"><span>Dates, times, #project and !! are read out of the line. The CEO can add tasks from chat too.</span></template>
+      </div>
+
+      <template x-if="planErr"><div class="empty" role="alert" style="margin-top:16px"><span class="ei"><svg class="ic"><use href="#i-alert"/></svg></span><div><b>The Planner did not load.</b><span x-text="planErr"></span></div></div></template>
+
+      <template x-if="plan && plan.overdue.length">
+        <div class="card" style="margin-top:16px; border-color: var(--rose-tint)">
+          <div class="card-h"><svg class="ic" style="color:var(--rose)"><use href="#i-alert"/></svg><h2>Overdue</h2><span class="badge hot" x-text="plan.overdue.length"></span></div>
+          <div class="card-b" style="padding-top:0">
+            <template x-for="it in plan.overdue" :key="it.id">
+              <div class="pi" :class="{done: it.done}">
+                <button class="tick" @click="taskToggle(it)" :aria-label="it.done ? 'Reopen' : 'Done'"><svg class="ic"><use href="#i-check"/></svg></button>
+                <div class="t"><span x-text="it.title"></span> <span class="pr" x-text="'was due ' + fmtDay(it.when) + (it.project ? ' · ' + it.project.name : '')"></span></div>
+                <button class="btn sm ghost" @click="taskMove(it, 0)" title="Move to today">Today</button>
+                <button class="btn sm ghost" @click="taskDrop(it)" title="Drop it">Drop</button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <div class="week-h">
+        <h2 x-text="planTitle()"></h2>
+        <span class="faint" style="font-size:var(--fs-2)" x-show="plan" x-text="plan ? plural(plan.counts.week, 'thing') + ' this week' : ''"></span>
+        <a class="tag amber" href="#settings/connections" x-show="notConnected(['google', 'canvas']).length" x-text="'Not connected: ' + notConnected(['google', 'canvas']).join(', ')" title="Calendar events and Canvas due dates join the week once these are connected"></a>
+        <span class="grow"></span>
+        <button class="btn sm" @click="planShift(-7)" aria-label="Previous week">‹</button>
+        <button class="btn sm" @click="planToday()" :disabled="!planStart">Today</button>
+        <button class="btn sm" @click="planShift(7)" aria-label="Next week">›</button>
+      </div>
+      <template x-if="!plan && !planErr"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-clock"/></svg></span><div><b>Loading the week…</b></div></div></template>
+      <template x-if="plan">
+        <div class="week">
+          <template x-for="d in plan.days" :key="d.date">
+            <div class="day" :class="{today: d.today, past: d.date < plan.today, 'empty-day': !d.items.length && d.date < plan.today}">
+              <div class="dh"><span x-text="d.label.split(' ')[0]"></span><b x-text="d.label.split(' ')[1]"></b><span x-show="d.today" style="text-transform:none; letter-spacing:0; margin-left:auto">Today</span></div>
+              <template x-if="!d.items.length"><div class="dn" x-text="notConnected(['google', 'canvas']).length ? 'Nothing yet (calendar and Canvas not connected)' : 'Nothing yet'"></div></template>
+              <template x-for="it in d.items" :key="it.kind + ':' + it.id">
+                <div class="pi" :class="{done: it.done}" :title="planKindLabel(it.kind) + (it.definition_of_done ? ' · done when: ' + it.definition_of_done : '')">
+                  <template x-if="it.kind === 'task'"><button class="tick" @click="taskToggle(it)" :aria-label="it.done ? 'Reopen' : 'Done'"><svg class="ic"><use href="#i-check"/></svg></button></template>
+                  <template x-if="it.kind !== 'task'"><span class="k" :class="it.kind" aria-hidden="true"></span></template>
+                  <div class="t">
+                    <span class="at" x-show="it.at" x-text="it.at ? fmtTime(it.at) : ''"></span><span x-text="it.title"></span><span x-show="it.repeats" title="Repeats" aria-label="Repeats" style="color:var(--t3);margin-left:4px">↻</span>
+                    <span class="pr" x-show="it.project || it.kind !== 'task'" x-text="[it.project ? it.project.name : '', it.kind !== 'task' ? planKindLabel(it.kind) : ''].filter(Boolean).join(' · ')"></span>
+                  </div>
+                  <template x-if="it.url"><a class="round" :href="it.url" target="_blank" rel="noopener" aria-label="Open" style="width:26px;height:26px"><svg class="ic sm"><use href="#i-ext"/></svg></a></template>
+                  <template x-if="it.kind === 'night' && plan"><button class="round" @click="goRoom('plan', 'night')" aria-label="Night shift" style="width:26px;height:26px"><svg class="ic sm"><use href="#i-moon"/></svg></button></template>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <template x-if="plan && (plan.someday.length || true)">
+        <div class="plan-two">
+          <div class="card">
+            <div class="card-h"><svg class="ic"><use href="#i-folder"/></svg><h2>Someday</h2><span class="badge" x-text="plan.someday.length"></span></div>
+            <div class="card-b" style="padding-top:0">
+              <template x-if="!plan.someday.length"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-check"/></svg></span><div><b>Nothing undated.</b>A line with no date lands here until you give it one.</div></div></template>
+              <template x-for="it in plan.someday" :key="it.id">
+                <div class="pi">
+                  <button class="tick" @click="taskToggle(it)" aria-label="Done"><svg class="ic"><use href="#i-check"/></svg></button>
+                  <div class="t"><span x-text="it.title"></span><span class="pr" x-show="it.project" x-text="it.project ? it.project.name : ''"></span></div>
+                  <button class="btn sm ghost" @click="taskMove(it, 0)" title="Put it on today">Today</button>
+                  <button class="btn sm ghost" @click="taskMove(it, 7)" title="Put it a week out">Next week</button>
+                </div>
+              </template>
+            </div>
+          </div>
+          
+        </div>
+      </template>
+    
+  </div>
+  <div class="sub" data-sub="night" x-show="sub.plan === 'night'">
+<div class="card" id="night">
+            <div class="card-h"><svg class="ic"><use href="#i-clock"/></svg><h2 x-text="night && night.phase === 'morning' ? 'Last night' : 'Tonight'"></h2>
+              <span class="badge" :class="{acc: nightOpen().length}" x-text="night ? night.tasks.length : 0"></span><span class="grow"></span>
+              <span class="faint" style="font-size:var(--fs-2);white-space:nowrap" x-text="night ? '$' + night.spent + ' of $' + Number(night.cap).toFixed(2) : ''"></span>
+              <button class="btn sm ghost" x-show="night" @click="openReplay(night.phase === 'morning' ? night.night : null)" title="Watch the night as a film">Replay</button>
+              <button class="btn sm primary" x-show="nightOpen().length > 1" :disabled="nightBusy" @click="nightApproveAll()" x-text="'Approve all (' + nightOpen().length + ')'"></button>
+              <button class="btn sm" x-show="night && night.phase === 'evening' && !night.tasks.length" :disabled="nightBusy" @click="nightPropose()">Plan tonight</button></div>
+            <div class="card-b">
+              <template x-if="!night"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-clock"/></svg></span><div><b>Loading…</b></div></div></template>
+              <template x-if="night && !night.tasks.length">
+                <div class="empty"><span class="ei"><svg class="ic"><use href="#i-clock"/></svg></span><div><b x-text="night.phase === 'morning' ? 'Nothing ran last night.' : 'Nothing planned yet.'"></b>At 22:30 Atlas proposes one task per project with a next action; approve what you want done by morning, or add your own below.</div></div>
+              </template>
+              <template x-for="t in (night ? night.tasks : [])" :key="t.id">
+                <div class="nt">
+                  <div class="ttl"><b x-text="t.title"></b><span class="tag" :class="nightTone(t.status)" x-text="nightLabel(t.status)"></span>
+                    <span class="tag green" x-show="t.review === 'accepted'">Accepted</span><span class="tag soon" x-show="t.review === 'rework'">Sent back</span></div>
+                  <div class="row-meta" style="margin:3px 0 0"><span x-text="agentName(t.agent)"></span><template x-if="t.project_name"><span><span class="sep"></span><span x-text="t.project_name"></span></span></template><template x-if="Number(t.cost_usd) > 0"><span><span class="sep"></span><span x-text="fmtMoney(t.cost_usd)"></span></span></template></div>
+                  <div class="dod clamp2" x-text="'Done means: ' + t.definition_of_done"></div>
+                  <div class="res clamp6" x-show="t.result" x-text="t.result"></div>
+                  <div class="res err" x-show="t.error" x-text="t.error"></div>
+                  <div class="actions">
+                    <template x-if="t._busy"><span class="status-txt" x-text="t._busy"></span></template>
+                    <template x-if="!t._busy"><span class="actions" style="margin:0">
+                      <button class="btn sm primary" x-show="t.status === 'proposed'" @click="nightDecide(t, 'approve')">Approve</button>
+                      <button class="btn sm ghost" x-show="['proposed', 'approved'].includes(t.status)" @click="nightDecide(t, 'skip')">Skip</button>
+                      <button class="btn sm primary" x-show="['done', 'needs_you'].includes(t.status) && !t.review" @click="nightReview(t, 'accepted')">Accept</button>
+                      <button class="btn sm" x-show="['done', 'needs_you'].includes(t.status) && !t.review" @click="nightReview(t, 'rework')">Rework</button>
+                      <button class="btn sm ghost" x-show="t.episode_id" @click="openTrace(t.episode_id)">Why?</button>
+                    </span></template>
+                  </div>
+                  <template x-if="t._err"><div class="status-txt err" x-text="t._err"></div></template>
+                </div>
+              </template>
+              <div class="actions" style="margin-top:10px" x-show="night">
+                <button class="btn sm ghost" @click="nightAdding = !nightAdding" x-text="nightAdding ? 'Cancel' : 'Add a task'"></button>
+                <span class="grow"></span>
+                <button class="btn sm" x-show="night && night.tasks.some(t => t.status === 'approved')" :disabled="nightBusy" @click="nightRun()" title="Runs the approved tasks now instead of at 23:30">Run now</button>
+              </div>
+              <form class="ntform" x-show="nightAdding" @submit.prevent="nightAdd()">
+                <input x-model="nightForm.title" placeholder="What should be done by morning?" aria-label="Task" required />
+                <textarea x-model="nightForm.dod" placeholder="Done means… (what must exist, and where, before the agent may say DONE)" aria-label="Definition of done" required></textarea>
+                <div class="two">
+                  <select x-model="nightForm.project" aria-label="Project"><option value="">No project</option><template x-for="p in (night ? night.projects : [])" :key="p.slug"><option :value="p.slug" x-text="p.name"></option></template></select>
+                  <select x-model="nightForm.agent" aria-label="Agent"><option value="">Agent: from the project</option><template x-for="a in (night ? night.agents : [])" :key="a"><option :value="a" x-text="agentName(a)"></option></template></select>
+                </div>
+                <div class="actions" style="margin:0"><button class="btn sm primary" type="submit" :disabled="nightBusy">Add to tonight</button><span class="status-txt err" x-show="nightErr" x-text="nightErr"></span></div>
+              </form>
+            </div>
+          </div>
+  </div>
+  <div class="sub" data-sub="routines" x-show="sub.plan === 'routines'">
+      <form class="quick" @submit.prevent="quickAdd()">
+        <svg class="ic"><use href="#i-cal"/></svg>
+        <input type="text" x-model="quick.text" @input="quickHint()" :disabled="quick.busy" enterkeyhint="done" autocomplete="off"
+               placeholder="Add a task the way you'd say it: “Email the lender by Friday 3pm #kirkdale”" aria-label="Add a task" />
+        <button class="btn sm primary" type="submit" :disabled="quick.busy || !quick.text.trim()" x-text="quick.busy ? 'Adding…' : 'Add'"></button>
+      </form>
+      <div class="quick-hint" aria-live="polite">
+        <template x-if="quick.err"><span class="status-txt err" x-text="quick.err"></span></template>
+        <template x-if="!quick.err && quick.hint && quick.text.trim()"><span>
+          <b x-text="quick.hint.title || '…'"></b>
+          <span x-show="quick.hint.rule" x-text="' · repeats ' + (quick.hint.rule || '') + (quick.hint.date ? ', next ' + fmtDay(quick.hint.date) : '')"></span>
+          <span x-show="!quick.hint.rule && quick.hint.date"> · <span x-text="fmtDay(quick.hint.date)"></span></span>
+          <span x-show="quick.hint.time" x-text="' ' + (quick.hint.time || '')"></span>
+          <span x-show="!quick.hint.rule && !quick.hint.date"> · someday</span>
+          <span x-show="quick.hint.project" x-text="' · #' + quick.hint.project"></span>
+          <span x-show="quick.hint.priority === 'high'" class="tag urgent" style="margin-left:6px">high</span>
+        </span></template>
+        <template x-if="!quick.err && !(quick.hint && quick.text.trim())"><span>Dates, times, #project and !! are read out of the line. The CEO can add tasks from chat too.</span></template>
+      </div>
+<div class="card wf-card">
+  <div class="card-h"><svg class="ic"><use href="#i-branch"/></svg><h2>Workflows</h2><span class="badge" x-text="workflows.names.length"></span><span class="grow"></span>
+    <span class="faint" style="font-size:var(--fs-2)">Multi-step runs from workflows/*.yml; every outward step still asks first</span></div>
+  <div class="card-b">
+    <div class="status-txt err" x-show="workflows.err" x-text="workflows.err"></div>
+    <template x-if="!workflows.names.length && !workflows.err"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-branch"/></svg></span><div><b>No workflows yet.</b>A YAML file in workflows/ becomes a routine here.</div></div></template>
+    <div class="wf-grid">
+      <template x-for="w in workflows.names" :key="w">
+        <div class="wf">
+          <div class="wf-n" x-text="w.replace(/_/g, ' ')"></div>
+          <button class="btn sm primary" :disabled="workflows.busy" @click="runWorkflow(w)" x-text="workflows.busy === w ? 'Running…' : 'Run now'"></button>
+        </div>
+      </template>
+    </div>
+    <div class="row-title" style="margin:14px 0 4px" x-show="workflows.runs.length">Recent runs</div>
+    <template x-for="r in workflows.runs" :key="r.id">
+      <div class="pi"><span class="tag" :class="wfTone(r.status)" x-text="r.status"></span>
+        <div class="t"><span x-text="(r.name || r.workflow || '').replace(/_/g, ' ')"></span><span class="pr" x-text="ago(r.created_at) + (r.error ? ' · ' + r.error : '')"></span></div>
+        <button class="btn sm ghost" x-show="['running', 'waiting', 'pending'].includes(r.status)" @click="cancelRun(r)">Cancel</button></div>
+    </template>
+  </div>
+</div>
+<template x-if="plan"><div>
+<div class="card">
+            <div class="card-h"><svg class="ic"><use href="#i-clock"/></svg><h2>Repeats</h2><span class="badge" x-text="(plan.rules || []).length"></span></div>
+            <div class="card-b" style="padding-top:0">
+              <template x-if="!(plan.rules || []).length"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-clock"/></svg></span><div><b>Nothing repeats yet.</b>“Pay the mortgage every month on the 1st”, “Estimated taxes every quarter on the 15th”, “Team review every Friday 3pm”: typed into the box on <a class="link" href="#plan/week">Plan</a>, a rule puts the next three weeks on the Planner and keeps them coming.</div></div></template>
+              <template x-for="r in (plan.rules || [])" :key="r.id">
+                <div class="pi">
+                  <span class="k" aria-hidden="true" style="background:var(--t3)"></span>
+                  <div class="t"><span x-text="r.title"></span>
+                    <span class="pr" x-text="r.describe + (r.time ? ' at ' + r.time : '') + (r.next ? ' · next ' + fmtDay(r.next) : '') + (r.project ? ' · ' + r.project.name : '')"></span></div>
+                  <button class="btn sm ghost" @click="ruleStop(r)" title="Stop repeating; what is not due yet is dropped">Stop</button>
+                </div>
+              </template>
+              <p class="faint" style="font-size:var(--fs-2); margin:12px 0 2px; line-height:1.5">Type one line above, or tell the CEO in chat. Action items from a recording land here with their dates; Canvas due dates and calendar events appear once those are connected; the night shift's tasks show on their night. Every dated task gets a 9 a.m. reminder on its day.</p>
+            </div>
+          </div>
+</div></template>
+  </div>
+</section>

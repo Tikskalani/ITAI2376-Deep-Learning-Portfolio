@@ -1,0 +1,86 @@
+# Context pack (synthetic example; real people removed).
+snapshot: '2026-10-08'
+people:
+- name: Dr. Pat Lee
+  emails:
+  - person1@gmail.com
+  org: Example Oral Surgery
+  project: demo-dental
+  tier: 1
+  note: Example client contact.
+- name: Example Bank
+  domains:
+  - bank.example
+  project: household
+  tier: 2
+noise:
+  domains:
+  - promo-mailer.example
+  - promo-mailer2.example
+  - ak.promo-mailer.example
+  - e.stantonoptical.com
+  - email.theparkingspot.com
+  - email.wilsonsleather.com
+  - way.com
+  - rs.email.nextdoor.com
+  - ss.email.nextdoor.com
+  - e.ray-ban.com
+  - email.microcenter.com
+  - email.dkny.com
+  - mg.homedepot.com
+  - offers.nautica.com
+  - marketchameleon.com
+  - email.informeddelivery.usps.com
+  - hello.brandcrowd.com
+  - mystore.cvs.com
+  - promotion.bedbathandbeyond.com
+  - editor.thetexasflyover.com
+  - editor.jointheflyover.com
+  - arlo.com
+  - e.academy.com
+  - team.semrush.com
+  - snacks.robinhood.com
+  - nedm.asus.com
+  - kirklands.com
+  - academia-mail.com
+  - market-us.shein.com
+  - service.tiktok.com
+  - m.seaworldparks.com
+  - redditmail.com
+  - my.joinhoney.com
+  - jomashop.com
+  - seatgeek.com
+  - mail.michaelpage.com
+  - e.ace.aaa.com
+  - mktg.kitchenaid.com
+  - email.sel.sony.com
+  - email.sixflags.com
+  - loyalty.ms.aa.com
+  - quora.com
+  - alert.refer.io
+  - ziprecruiter.com
+  - notifications.monster.com
+  - fastweb.com
+  - listings@redfin.com
+  - cryptotwits.stocktwits.com
+  - email.perryellis.com
+  - notice.alibaba.com
+  - limitless.joinabound.com
+  - notification.capitalone.com
+  - notifications.creditkarma.com
+  - e.avis.com
+  - mail.beehiiv.com
+  - usmint.gov
+  addresses:
+  - updates-noreply@linkedin.com
+  - notifications-noreply@linkedin.com
+  - newsletter@service.tiktok.com
+rules:
+- Mail from a tier 1 person is importance 3; a direct question from one is at least
+  urgency 2.
+open_loops:
+  demo-dental:
+  - owner: them
+    who: Dr. Pat Lee
+    since: '2026-10-05'
+    text: Sign-off on the intake form.

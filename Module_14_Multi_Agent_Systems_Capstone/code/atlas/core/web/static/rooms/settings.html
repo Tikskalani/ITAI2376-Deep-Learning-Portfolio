@@ -1,0 +1,292 @@
+<section class="room" data-room="settings" x-show="room === 'settings'" x-cloak aria-label="Settings">
+  <div class="room-head"><h1 class="room-title">Settings</h1>
+    <div class="subnav" role="tablist" aria-label="Settings">
+      <button role="tab" :aria-selected="String(sub.settings === 'connections')" @click="goRoom('settings', 'connections')">Connections <span class="badge hot" x-show="connect ? connectMissing() : 0" x-text="connect ? connectMissing() : 0"></span></button>
+      <button role="tab" :aria-selected="String(sub.settings === 'trust')" @click="goRoom('settings', 'trust')">Trust</button>
+      <button role="tab" :aria-selected="String(sub.settings === 'ledger')" @click="goRoom('settings', 'ledger')">Ledger</button>
+    </div>
+  </div>
+  <div class="sub" data-sub="connections" x-show="sub.settings === 'connections'">
+      <div class="faint" style="font-size:var(--fs-2);margin-top:16px;line-height:1.5">Every agent is blind until its source is connected. Each tile proves the connection against the provider before it is kept, nothing is echoed back, and the worker picks it up within a minute. Tokens live in <code>.env</code> on this laptop only.</div>
+      <div class="setup-bar" x-show="setup">
+        <span class="st" :class="setup && setup.complete ? 'ok' : 'bad'"><i></i><span x-text="setup && setup.items ? ('Setup ' + setup.done + ' of ' + setup.total + ' done') : ''"></span></span>
+        <span class="faint" x-show="setup && !setup.complete">Each tile shows its own steps; the unfinished ones come first.</span><span class="grow"></span>
+        <button class="btn sm ghost" :disabled="setupBusy" @click="fetchSetup(true)" x-text="setupBusy ? 'Checking…' : 'Check again'"></button>
+        <span class="status-txt err" x-show="setup && setup.err" x-text="setup && setup.err"></span>
+      </div>
+      <template x-if="!connect"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-bolt"/></svg></span><div><b>Checking what is connected…</b></div></div></template>
+      <template x-if="connect"><div class="tiles">
+        <template x-for="it in setupExtra()" :key="it.id">
+          <div class="card tile" :style="'order:' + tileOrder(it.id)">
+            <div class="card-h"><svg class="ic"><use :href="it.id === 'push' ? '#i-bell' : '#i-monitor'"/></svg><h2 x-text="it.id === 'push' ? 'Phone push' : 'Submitter browser'" :title="it.label"></h2><span class="grow"></span>
+              <span class="st" :class="it.done ? 'ok' : 'bad'"><i></i><span x-text="it.done ? 'done' : 'to do'"></span></span></div>
+            <div class="card-b" style="padding-top:0">
+              <div class="faint" style="font-size:var(--fs-2)" x-text="it.detail"></div>
+              <ol class="tile-steps" x-show="!it.done && it.steps.length"><template x-for="(st, i) in it.steps" :key="i"><li x-text="st"></li></template></ol>
+              <template x-if="!it.done && it.commands && it.commands.length"><div class="tile-cmds"><template x-for="c in it.commands" :key="c"><div><code x-text="c"></code></div></template></div></template>
+              <div class="actions" x-show="it.action.kind === 'push'">
+                <button class="btn sm primary" x-show="!pushOn" :disabled="pushBusy" @click="togglePush()">Subscribe this device</button>
+                <button class="btn sm ghost" x-show="it.devices > 0" @click="sendTestPush()">Send a test push</button>
+                <span class="faint" style="font-size:var(--fs-2)" x-show="pushOn">This device is subscribed.</span>
+                <span class="status-txt err" x-show="pushMsg" x-text="pushMsg"></span>
+              </div>
+              <div class="actions" x-show="it.action.kind === 'recheck' && !it.done">
+                <button class="btn sm ghost" :disabled="setupBusy" @click="fetchSetup(true)" x-text="setupBusy ? 'Checking…' : 'Check again'"></button>
+              </div>
+            </div>
+          </div>
+        </template>
+        <div class="card tile" :style="'grid-column: 1 / -1; order:' + tileOrder('kb')">
+          <div class="card-h"><svg class="ic"><use href="#i-book"/></svg><h2>Everything Claude knows about you</h2><span class="grow"></span>
+            <span class="st" :class="kb && kb.facts_total ? 'ok' : ''"><i></i><span x-text="kb && kb.facts_total ? plural(kb.facts_total, 'fact') + ' learned' : 'nothing imported yet'"></span></span></div>
+          <div class="card-b" style="padding-top:0">
+            <div class="why">Years of your conversations with Claude hold your projects, people, preferences, decisions and constraints. Export them once (<a href="https://claude.ai/settings/data-privacy-controls" target="_blank" rel="noopener">claude.ai, Settings, Privacy, Export data</a>; a zip arrives by email) and drop the zip here. Atlas reads every conversation and project with the cheap model, keeps what is durable about you in memory with the conversation it came from, and puts standing preferences and constraints in the profile every run sees. About a dollar for a few thousand conversations; it pauses at the cap.</div>
+            <template x-if="kb && kb.import"><div style="margin-top:8px">
+              <div class="row-meta"><span class="tag" :class="{green: kb.import.status === 'done', acc: kb.import.status === 'running', soon: kb.import.status === 'paused', urgent: kb.import.status === 'failed'}" x-text="kb.import.status"></span>
+                <span x-text="kb.import.filename"></span><span class="sep"></span><span x-text="kb.import.done + ' of ' + kb.import.items + ' read'"></span><span class="sep"></span><span x-text="plural(kb.import.facts, 'fact') + ' · ' + plural(kb.import.notes, 'profile line')"></span><span class="sep"></span><span x-text="'$' + Number(kb.import.cost_usd).toFixed(2) + ' of $' + Number(kb.import.cap_usd).toFixed(2) + ' (est. $' + Number(kb.import.estimate_usd).toFixed(2) + ')'"></span></div>
+              <div class="bar" style="height:6px;margin-top:8px;background:var(--raised);border-radius:3px;overflow:hidden"><i style="display:block;height:100%;background:var(--accent)" :style="'width:' + (kb.import.items ? Math.round(100 * kb.import.done / kb.import.items) : 0) + '%'"></i></div>
+              <div class="status-txt err" x-show="kb.import.error" x-text="kb.import.error"></div>
+              <div class="actions" style="margin-top:8px">
+                <button class="btn sm" x-show="kb.import.status === 'running' || kb.import.status === 'queued'" @click="kbControl('pause')">Pause</button>
+                <button class="btn sm primary" x-show="kb.import.status === 'paused'" @click="kbControl('resume', Number(kb.import.cap_usd) + 10)" x-text="'Raise the cap to $' + (Number(kb.import.cap_usd) + 10).toFixed(0) + ' and go on'"></button>
+              </div>
+              <template x-if="kb.recent.length"><div style="margin-top:10px"><div class="row-title">Atlas now knows</div>
+                <template x-for="f in kb.recent" :key="f.created_at + f.content"><div class="pi"><span class="k event" aria-hidden="true"></span><div class="t" x-text="f.content"></div></div></template></div></template>
+            </div></template>
+            <form class="ntform" @submit.prevent="kbUpload()" x-show="!kb || !kb.import || ['done', 'failed', 'paused'].includes(kb.import.status)">
+              <div class="two"><input type="file" accept=".zip,.json,application/zip,application/json" x-ref="kbFile" required /><input type="number" min="0" max="500" step="1" placeholder="Cap in $ (default 10)" x-model="kbCap" /></div>
+              <div class="actions" style="margin:0"><button class="btn sm primary" type="submit" :disabled="kbBusy" x-text="kbBusy ? 'Uploading…' : 'Import the export'"></button></div>
+            </form>
+          </div>
+        </div>
+        <div class="card tile" :style="'order:' + tileOrder('google')">
+          <div class="card-h"><svg class="ic"><use href="#i-mail"/></svg><h2>Google</h2><span class="grow"></span><span class="st" :class="connect.google.ok === true ? 'ok' : (connect.google.ok === false ? 'bad' : '')"><i></i><span x-text="connect.google.ok === true ? 'connected' : (connect.google.needs_reconnect ? 'needs reconnect' : (connect.google.ok === false ? 'needs attention' : 'not connected'))"></span></span></div>
+          <div class="card-b" style="padding-top:0">
+            <div class="why">Gmail and Calendar: mail becomes signals, the job search files itself, the week fills in. Drafts and holds still wait for your yes.</div>
+            <template x-if="setupItem('google') && !setupItem('google').done"><ol class="tile-steps"><template x-for="(st, i) in setupItem('google').steps" :key="i"><li x-text="st"></li></template></ol></template>
+            <div class="faint" style="font-size:var(--fs-2)" x-text="connect.google.detail"></div>
+            <div class="row-meta" x-show="connect.google.client" style="margin-top:6px">
+              <span x-text="'Client ' + (connect.google.client_id_prefix || '') + '\u2026'"></span><span class="sep"></span>
+              <span x-text="connect.google.consented ? 'consent given' + (connect.google.connected_at ? ' ' + ago(connect.google.connected_at) : '') : 'no consent yet'"></span>
+              <span class="sep" x-show="connect.google.last_refresh"></span><span x-show="connect.google.last_refresh" x-text="'last refresh ' + ago(connect.google.last_refresh)"></span>
+            </div>
+            <div style="font-size:var(--fs-2);color:var(--amber);margin-top:6px" x-show="connect.google.needs_reconnect">Google needs a reconnect: the refresh token expired or was revoked. Tap Reconnect Google.</div>
+            <template x-if="!connect.google.client || cx.gReplace"><div>
+              <ol x-show="!connect.google.client"><li>In <a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener">Google Cloud</a>, enable the Gmail API and the <a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noopener">Calendar API</a>.</li>
+                <li><a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noopener">OAuth consent screen</a>: External, add your own address as a test user.</li>
+                <li><a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Credentials</a>: Create credentials, OAuth client ID, type <b>Desktop app</b>. Paste the id and the secret (it starts with GOCSPX-) here, once.</li></ol>
+              <div class="faint" style="font-size:var(--fs-2);margin-bottom:8px" x-show="connect.google.client">Paste the id and the current secret from <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud &gt; Credentials &gt; Clients</a>, using the copy icon (a secret shown as dots cannot be pasted). Saving drops the stored consent; tap Connect Google afterwards.</div>
+              <form class="ntform" @submit.prevent="connectGoogleClient()">
+                <input type="text" placeholder="Client ID (ends in .apps.googleusercontent.com)" x-model="cx.gid" autocomplete="off" required />
+                <input type="password" placeholder="Client secret (starts with GOCSPX-)" x-model="cx.gsecret" autocomplete="off" required />
+                <div class="actions" style="margin:0"><button class="btn sm primary" type="submit" :disabled="connectBusy === 'google'" x-text="connect.google.client ? 'Replace the client' : 'Save the client'"></button>
+                  <button class="btn sm ghost" type="button" x-show="connect.google.client" @click="cx.gReplace = false; cx.gid = ''; cx.gsecret = ''">Cancel</button></div>
+              </form></div></template>
+            <template x-if="connect.google.client && !cx.gReplace"><div>
+              <div class="actions" style="margin-top:10px">
+                <button class="btn primary" @click="connectGoogle()" :disabled="!googleHere()" :title="googleHere() ? '' : 'Open Atlas on the laptop (http://127.0.0.1:8000) to connect Google: its sign-in only returns there.'"><svg class="ic sm"><use href="#i-bolt"/></svg><span x-text="connect.google.consented || connect.google.needs_reconnect ? 'Reconnect Google' : 'Connect Google'"></span></button>
+                <button class="btn sm ghost" @click="cx.gReplace = true">Replace OAuth client</button>
+                <button class="btn sm ghost" x-show="connect.google.consented" :disabled="connectBusy === 'google'" @click="disconnectGoogle()">Disconnect</button>
+              </div>
+              <div class="faint" style="font-size:var(--fs-2);margin-top:6px">One tap, from this laptop's browser (127.0.0.1). Atlas asks Google for: <span x-text="(connect.google.scope_words || []).join(', ')"></span>. <span x-show="connect.google.consented || connect.google.needs_reconnect" x-text="connect.google.testing_note"></span></div>
+            </div></template>
+            <div class="row-meta" x-show="connect.google.gmail || connect.google.calendar"><span x-show="connect.google.gmail" x-text="'Gmail read ' + (connect.google.gmail && connect.google.gmail.last_ok_at ? ago(connect.google.gmail.last_ok_at) : 'never')"></span><span class="sep" x-show="connect.google.gmail && connect.google.calendar"></span><span x-show="connect.google.calendar" x-text="'Calendar read ' + (connect.google.calendar && connect.google.calendar.last_ok_at ? ago(connect.google.calendar.last_ok_at) : 'never')"></span></div>
+          </div>
+        </div>
+        <div class="card tile" :style="'order:' + tileOrder('mcp')">
+          <div class="card-h"><svg class="ic"><use href="#i-bolt"/></svg><h2>Zapier and any MCP server</h2><span class="grow"></span><span class="st" :class="connect.mcp.servers.length ? 'ok' : ''"><i></i><span x-text="connect.mcp.servers.length ? plural(connect.mcp.servers.length, 'server') : 'none yet'"></span></span></div>
+          <div class="card-b" style="padding-top:0">
+            <div class="why">Thousands of apps in one paste. Connect your apps once at <a href="https://zapier.com/mcp" target="_blank" rel="noopener">zapier.com/mcp</a>, enable the actions you want, copy the server URL here: the CEO gets every one as a tool (each outward action still goes through the trust ladder). Notion, Composio, Pipedream and any other MCP server over HTTPS work the same way.</div>
+            <template x-for="s in connect.mcp.servers" :key="s.name">
+              <div class="pi"><span class="k event" aria-hidden="true"></span><div class="t"><b x-text="s.name"></b> <span class="faint" x-text="s.host"></span><span class="pr" x-text="(s.tool_count != null ? plural(s.tool_count, 'tool') + ' · ' : '') + 'for ' + s.agents.map(a => agentName(a)).join(', ') + (s.has_token ? ' · token' : '')"></span></div>
+                <button class="btn sm ghost" @click="removeMcp(s)">Remove</button></div>
+            </template>
+            <template x-for="s in connect.mcp.servers" :key="'tools-' + s.name">
+              <div class="mcp-tools">
+                <div class="status-txt" x-show="mcpTools[s.name] && mcpTools[s.name].loading">Asking the server what it can do…</div>
+                <div class="status-txt err" x-show="mcpTools[s.name] && mcpTools[s.name].err" x-text="mcpTools[s.name] && mcpTools[s.name].err"></div>
+                <template x-for="g in (mcpTools[s.name] ? mcpTools[s.name].groups : [])" :key="g.app">
+                  <div class="mcp-app"><b x-text="g.app"></b><span class="mcp-acts"><template x-for="t in g.tools" :key="t.name"><span class="tag dim" x-text="t.action"></span></template></span></div>
+                </template>
+              </div>
+            </template>
+            <form class="ntform" @submit.prevent="connectMcp()">
+              <div class="two"><input type="text" placeholder="Name (zapier, notion…)" x-model="cx.mcpName" required /><input type="text" placeholder="Agents (ceo, coo…)" x-model="cx.mcpAgents" /></div>
+              <input type="url" placeholder="https://mcp.zapier.com/api/mcp/s/…/mcp" x-model="cx.mcpUrl" required />
+              <input type="password" placeholder="Bearer token (only if the server needs one)" x-model="cx.mcpToken" autocomplete="off" />
+              <div class="actions" style="margin:0"><button class="btn sm primary" type="submit" :disabled="connectBusy === 'mcp'" x-text="connectBusy === 'mcp' ? 'Checking…' : 'Connect'"></button></div>
+            </form>
+          </div>
+        </div>
+        <div class="card tile" :style="'order:' + tileOrder('github')">
+          <div class="card-h"><svg class="ic"><use href="#i-branch"/></svg><h2>GitHub</h2><span class="grow"></span><span class="st" :class="connect.github.ok === true ? 'ok' : (connect.github.ok === false ? 'bad' : '')"><i></i><span x-text="connect.github.ok === true ? 'connected' : (connect.github.ok === false ? 'needs attention' : 'not connected')"></span></span></div>
+          <div class="card-b" style="padding-top:0">
+            <div class="why">Your repos become signals for the CTO and the build agent. A <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a>, read-only on the repos you pick.</div>
+            <template x-if="setupItem('github') && !setupItem('github').done"><ol class="tile-steps"><template x-for="(st, i) in setupItem('github').steps" :key="i"><li x-text="st"></li></template></ol></template>
+            <div class="faint" style="font-size:var(--fs-2)" x-text="connect.github.detail"></div>
+            <form class="ntform" @submit.prevent="connectGithub()">
+              <input type="password" placeholder="github_pat_…" x-model="cx.ghToken" autocomplete="off" required />
+              <div class="actions" style="margin:0"><button class="btn sm primary" type="submit" :disabled="connectBusy === 'github'" x-text="connect.github.configured ? 'Replace the token' : 'Connect'"></button></div>
+            </form>
+            <div class="row-meta" x-show="cx.ghRepos.length" x-text="'Sees ' + cx.ghRepos.slice(0, 6).join(', ') + (cx.ghRepos.length > 6 ? ' …' : '')"></div>
+          </div>
+        </div>
+        <div class="card tile" :style="'order:' + tileOrder('canvas')">
+          <div class="card-h"><svg class="ic"><use href="#i-cap"/></svg><h2>Canvas</h2><span class="grow"></span><span class="st" :class="connect.canvas.ok === true ? 'ok' : (connect.canvas.ok === false ? 'bad' : '')"><i></i><span x-text="connect.canvas.ok === true ? 'connected' : (connect.canvas.ok === false ? 'needs attention' : 'not connected')"></span></span></div>
+          <div class="card-b" style="padding-top:0">
+            <div class="why">Due dates land on the Planner and the academic agent sees the syllabus. In Canvas: Account, Settings, <b>New access token</b>.</div>
+            <template x-if="setupItem('canvas') && !setupItem('canvas').done"><ol class="tile-steps"><template x-for="(st, i) in setupItem('canvas').steps" :key="i"><li x-text="st"></li></template></ol></template>
+            <div class="faint" style="font-size:var(--fs-2)" x-text="connect.canvas.detail"></div>
+            <form class="ntform" @submit.prevent="connectCanvas()">
+              <input type="url" placeholder="https://hccs.instructure.com" x-model="cx.cvUrl" />
+              <input type="password" placeholder="Access token" x-model="cx.cvToken" autocomplete="off" required />
+              <div class="actions" style="margin:0"><button class="btn sm primary" type="submit" :disabled="connectBusy === 'canvas'" x-text="connect.canvas.configured ? 'Replace the token' : 'Connect'"></button>
+                <a class="link" :href="(cx.cvUrl || connect.canvas.url) + '/profile/settings'" target="_blank" rel="noopener">Open Canvas settings</a></div>
+            </form>
+          </div>
+        </div>
+        <div class="card tile" :style="'order:' + tileOrder('alarm')">
+          <div class="card-h"><svg class="ic"><use href="#i-bell"/></svg><h2>Outside alarm</h2><span class="grow"></span><span class="st" :class="connect.alarm.ok === true ? 'ok' : (connect.alarm.ok === false ? 'bad' : '')"><i></i><span x-text="connect.alarm.ok === true ? 'connected' : (connect.alarm.ok === false ? 'needs attention' : 'not connected')"></span></span></div>
+          <div class="card-b" style="padding-top:0">
+            <div class="why">If the laptop is off, nothing in Atlas can tell you. A free <a href="https://healthchecks.io" target="_blank" rel="noopener">healthchecks.io</a> check gets a ping every loop and emails you when the pings stop.</div>
+            <template x-if="setupItem('alarm') && !setupItem('alarm').done"><ol class="tile-steps"><template x-for="(st, i) in setupItem('alarm').steps" :key="i"><li x-text="st"></li></template></ol></template>
+            <div class="faint" style="font-size:var(--fs-2)" x-text="connect.alarm.detail"></div>
+            <form class="ntform" @submit.prevent="connectAlarm()">
+              <input type="url" placeholder="https://hc-ping.com/…" x-model="cx.alarm" required />
+              <div class="actions" style="margin:0"><button class="btn sm primary" type="submit" :disabled="connectBusy === 'alarm'">Connect</button></div>
+            </form>
+          </div>
+        </div>
+      </div></template>
+  </div>
+  <div class="sub" data-sub="trust" x-show="sub.settings === 'trust'">
+<div class="card" id="trust" style="margin-top:16px">
+        <div class="card-h"><svg class="ic"><use href="#i-scale"/></svg><h2>The trust ladder</h2>
+          <span class="faint" style="font-size:var(--fs-2)" x-show="trust" x-text="trust ? trust.counts.deny + ' never · ' + trust.counts.approve + ' ask first · ' + trust.counts.auto + ' on their own · last ' + trust.days + ' days' : ''"></span></div>
+        <div class="card-b" style="padding-top:0">
+          <div class="faint" style="font-size:var(--fs-2);margin-bottom:6px">What each tool may do on its own, next to what it has earned. Moving a tool up is your call; Atlas never promotes itself.</div>
+          <template x-if="!trust"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-scale"/></svg></span><div><b>Loading the ladder…</b></div></div></template>
+          <template x-for="r in (trust ? trust.rungs : [])" :key="r.pattern">
+            <div class="pi" style="align-items:center">
+              <span class="k" :class="{event: r.gate === 'approve'}" :style="r.gate === 'deny' ? 'background:var(--rose)' : (r.gate === 'auto' ? 'background:var(--green)' : '')" aria-hidden="true"></span>
+              <div class="t"><b x-text="r.label"></b> <code class="faint" style="font-size:var(--fs-1)" x-show="r.label !== r.pattern" x-text="r.pattern" :title="'Matches tool names like ' + r.pattern"></code><span x-show="!r.fenced" class="tag" style="margin-left:6px">no rule yet</span><span x-show="r.locked" class="tag" style="margin-left:6px" title="Money and account actions are never automated. Only a change to Atlas's code can move this rule.">locked</span>
+                <span class="pr" x-text="[r.note, r.tools.length && r.tools.join(', ') !== r.pattern ? r.tools.join(', ') : '', r.calls + ' call' + (r.calls === 1 ? '' : 's'), r.errors ? r.errors + ' error' + (r.errors === 1 ? '' : 's') : '', r.asked ? r.asked + ' asked (' + r.approved + ' yes, ' + r.rejected + ' no' + (r.expired ? ', ' + r.expired + ' expired' : '') + ')' : '', r.last_at ? 'last ' + ago(r.last_at) : ''].filter(Boolean).join(' · ')"></span></div>
+              <span class="seg" role="group" :aria-label="'Rung for ' + r.label" :class="{locked: r.locked}">
+                <button :aria-pressed="String(r.gate === 'deny')" @click="setGate(r, 'deny')" title="Never: the tool is refused and the agent prepares the content for you instead">never</button>
+                <button :aria-pressed="String(r.gate === 'approve')" :disabled="r.locked" @click="setGate(r, 'approve')" title="Asks first: an approval card, and the ledger makes sure it runs once">asks first</button>
+                <button :aria-pressed="String(r.gate === 'auto')" :disabled="r.locked || (r.no_auto && r.gate !== 'auto')" @click="setGate(r, 'auto')" :title="r.no_auto ? 'Sending and posting always wait for your yes' : 'On its own: runs without a card; still audited'">on its own</button>
+              </span>
+              <button class="btn sm ghost trust-rm" :style="r.fenced && !r.locked ? '' : 'visibility:hidden'" :disabled="!r.fenced || r.locked" @click="unfence(r)" title="Remove this rule; its tools fall back to running on their own">Remove</button>
+            </div>
+          </template>
+        </div>
+      </div>
+  </div>
+  <div class="sub" data-sub="ledger" x-show="sub.settings === 'ledger'">
+<div class="card" id="efficiency" x-show="costPanel">
+        <div class="card-h"><svg class="ic"><use href="#i-bolt"/></svg><h2>Efficiency</h2><span class="grow"></span>
+          <span class="faint" style="font-size:var(--fs-2)" x-text="costPanel ? 'last ' + costPanel.days + ' days' : ''"></span></div>
+        <div class="card-b">
+          <template x-if="costPanel"><div>
+            <div class="std" title="Average of the last seven full briefs; Phase 3 stops when it is under the target.">
+              <span class="dot" :class="costPanel.brief.avg_usd !== null && +costPanel.brief.avg_usd <= +costPanel.brief.target_usd ? 'ok' : 'warn'"></span>
+              <div class="grow"><div class="nm">Cost per brief</div><div class="crit" x-text="'target under $' + costPanel.brief.target_usd"></div></div>
+              <div class="val" x-text="costPanel.brief.avg_usd === null ? 'none yet' : '$' + costPanel.brief.avg_usd"></div>
+            </div>
+            <div class="std"><span class="dot"></span>
+              <div class="grow"><div class="nm">Briefs</div><div class="crit">full, and quiet ones sent without the model</div></div>
+              <div class="val" x-text="costPanel.brief.full + ' full, ' + costPanel.brief.quiet + ' quiet'"></div></div>
+            <div class="std"><span class="dot"></span>
+              <div class="grow"><div class="nm">Prompt-cache writes</div><div class="crit">share of all spend</div></div>
+              <div class="val" x-text="Math.round(costPanel.cache_write_share * 100) + '%'"></div></div>
+            <div class="std"><span class="dot"></span>
+              <div class="grow"><div class="nm">Today and this month</div><div class="crit" x-text="'daily cap $' + costPanel.cap_usd"></div></div>
+              <div class="val" x-text="'$' + (+costPanel.today_usd).toFixed(2) + ' / $' + (+costPanel.month_usd).toFixed(2)"></div></div>
+            <div class="faint" style="font-size:var(--fs-2);margin-top:8px" x-text="'Top: ' + costPanel.top.map(t => t.agent + ' $' + t.usd).join(', ')"></div>
+          </div></template>
+        </div>
+      </div>
+<div class="card" id="cost" style="margin-top:16px">
+        <div class="card-h"><svg class="ic"><use href="#i-ledger"/></svg><h2>Spend, last 14 days</h2></div>
+        <div class="card-b">
+          <div class="spend" style="flex-wrap:wrap;gap:24px">
+            <svg class="gauge" viewBox="0 0 64 64" aria-hidden="true" style="width:76px;height:76px">
+              <circle class="trk" cx="32" cy="32" r="26"/><circle class="arc" :class="capTone()" cx="32" cy="32" r="26" :stroke-dasharray="gaugeDash()"/>
+              <text x="32" y="36" text-anchor="middle" x-text="Math.round(capRatio() * 100) + '%'"></text>
+            </svg>
+            <div><div class="faint" style="font-size:var(--fs-2)">Today</div><div class="money" style="font-size:32px" x-html="costNumHtml()"></div>
+              <div class="faint" style="font-size:var(--fs-2)" x-text="(cost.global_daily_cap ? 'of $' + cost.global_daily_cap.toFixed(2) + ' daily cap · ' : '') + plural(cost.today ? cost.today.episode_count : 0, 'run')"></div></div>
+            <div><div class="faint" style="font-size:var(--fs-2)">This month</div><div class="money" x-text="fmtMoney(cost.month ? cost.month.total : 0)"></div>
+              <div class="faint" style="font-size:var(--fs-2)" x-text="plural(cost.month ? cost.month.episode_count : 0, 'run')"></div></div>
+          </div>
+          <div style="position:relative"><div class="chart-empty" x-show="sparkMax() === 0">No spend in the last 14 days</div>
+          <svg class="chart" viewBox="0 0 640 200" preserveAspectRatio="none" aria-label="Daily spend, last 14 days" role="img" style="margin-top:20px">
+            <line class="grid" x1="0" x2="640" y1="10" y2="10"/><line class="grid" x1="0" x2="640" y1="95" y2="95"/><line class="grid" x1="0" x2="640" y1="180" y2="180"/>
+            <path class="area" :d="chartArea(640, 180, 10)" /><path class="line" :d="chartLine(640, 180, 10)" />
+          </svg></div>
+          <div style="display:flex;justify-content:space-between;font-size:var(--fs-2);color:var(--t3)" class="num"><span x-text="sparkLabel(0)"></span><span x-text="'peak $' + sparkMax().toFixed(2)"></span><span x-text="sparkLabel(-1)"></span></div>
+        </div>
+      </div>
+<div class="card"><div class="card-h"><h2>Where it went today</h2></div>
+          <div class="card-b">
+            <template x-if="!costByModel().length && !costByAgent().length"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-ledger"/></svg></span><div><b>No spend recorded today.</b></div></div></template>
+            <div x-show="costByModel().length"><div class="group-lbl">By model</div>
+              <template x-for="r in costByModel()" :key="r.key"><div class="brow"><span class="k" x-text="r.key"></span><span class="bar"><i :style="`width:${r.pct}%;background:${modelColor(r.key)}`"></i></span><span class="v" x-text="fmtMoney(r.val)"></span></div></template></div>
+            <div x-show="costByAgent().length" style="margin-top:8px"><div class="group-lbl">By agent</div>
+              <template x-for="r in costByAgent()" :key="r.key"><div class="brow"><span class="k" x-text="r.key"></span><span class="bar"><i :style="`width:${r.pct}%`"></i></span><span class="v" x-text="fmtMoney(r.val)"></span></div></template></div>
+          </div>
+        </div>
+<div class="card"><div class="card-h"><h2>Monthly caps</h2></div>
+          <div class="card-b">
+            <template x-if="!caps().length"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-scale"/></svg></span><div><b>No per-agent caps.</b>Set one with the CFO or the cost script.</div></div></template>
+            <template x-for="c in caps()" :key="c.agent"><div class="brow"><span class="k" x-text="c.agent"></span><span class="bar"><i :style="`width:${c.pct}%;background:${capColor(c.pct)}`"></i></span><span class="v"><span x-text="fmtMoney(c.spent)"></span><span class="of" x-text="' / ' + fmtMoney(c.cap)"></span></span></div></template>
+          </div>
+        </div>
+<div class="card" id="money">
+            <div class="card-h"><svg class="ic"><use href="#i-scale"/></svg><h2>Money</h2>
+              <span class="faint" style="font-size:var(--fs-2)" x-show="money && !money.empty" x-text="money ? 'last ' + money.days + ' days' : ''"></span><span class="grow"></span>
+              <label class="btn sm" style="cursor:pointer" :class="{primary: money && money.empty}"><span x-text="moneyBusy ? 'Filing…' : 'Drop a statement'"></span><input type="file" accept=".csv,text/csv" style="display:none" :disabled="moneyBusy" @change="moneyUpload($event.target.files[0]); $event.target.value = ''" /></label></div>
+            <div class="card-b" style="padding-top:0">
+              <template x-if="money && money.empty"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-scale"/></svg></span><div><b>Nothing filed yet.</b>Drop a bank or card statement (CSV), or Robinhood's transaction history (Account → Reports and statements → export as CSV). Read-only: Atlas never holds a login or the brokerage account; it reads what you export.</div></div></template>
+              <template x-if="money && !money.empty"><div>
+                <div class="stats" style="margin:10px 0 0; grid-template-columns: repeat(3, minmax(0, 1fr))">
+                  <div class="stat"><div class="lbl">In</div><div class="val" x-text="fmtMoney(money.cash_flow.income_total)"></div></div>
+                  <div class="stat"><div class="lbl">Out</div><div class="val" x-text="fmtMoney(money.cash_flow.expense_total)"></div></div>
+                  <div class="stat" :class="{hot: Number(money.cash_flow.net) < 0}"><div class="lbl">Net</div><div class="val" x-text="fmtMoney(money.cash_flow.net)"></div></div>
+                </div>
+                <div class="row-meta" style="margin-top:8px"><template x-for="(v, k) in Object.fromEntries(Object.entries(money.cash_flow.by_category || {}).slice(0, 4))" :key="k"><span><span x-text="k"></span> <b style="color:var(--t1)" x-text="fmtMoney(v)"></b></span></template></div>
+                <template x-if="money.portfolio && (money.portfolio.positions.length || money.portfolio.trades)"><div style="margin-top:14px">
+                  <div class="row-title">Robinhood, at cost</div>
+                  <div class="faint" style="font-size:var(--fs-2)" x-text="money.portfolio.note + (money.portfolio.last_import ? ' Last export ' + ago(money.portfolio.last_import.at) + '.' : '')"></div>
+                  <template x-for="p in money.portfolio.positions" :key="p.instrument">
+                    <div class="pi"><span class="k event" aria-hidden="true"></span>
+                      <div class="t"><b x-text="p.instrument"></b> <span class="faint" x-text="Number(p.shares).toLocaleString(undefined, {maximumFractionDigits: 4}) + ' sh · avg ' + fmtMoney(p.avg_cost)"></span>
+                        <span class="pr" x-text="'cost basis ' + fmtMoney(p.cost_basis) + (Number(p.realized) ? ' · realized ' + fmtMoney(p.realized) : '') + (Number(p.dividends) ? ' · dividends ' + fmtMoney(p.dividends) : '')"></span></div></div>
+                  </template>
+                  <div class="row-meta" style="margin-top:8px"><span>invested <b style="color:var(--t1)" x-text="fmtMoney(money.portfolio.totals.invested)"></b></span><span class="sep"></span><span>realized <b :style="'color:' + (Number(money.portfolio.totals.realized) < 0 ? 'var(--rose)' : 'var(--green)')" x-text="fmtMoney(money.portfolio.totals.realized)"></b></span><span class="sep"></span><span>dividends <b style="color:var(--t1)" x-text="fmtMoney(money.portfolio.totals.dividends)"></b></span><span class="sep"></span><span>fees <b style="color:var(--t1)" x-text="fmtMoney(money.portfolio.totals.fees)"></b></span></div>
+                </div></template>
+                <div class="row-meta" style="margin-top:10px"><template x-for="a in money.accounts" :key="a.account"><span><span x-text="a.account"></span> · <span x-text="ago(a.last_import)"></span></span></template></div>
+              </div></template>
+              <template x-if="!money"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-scale"/></svg></span><div><b>Loading…</b></div></div></template>
+            </div>
+          </div>
+<div class="card" id="standard" style="margin-top:16px">
+            <div class="card-h"><svg class="ic"><use href="#i-check"/></svg><h2>The Atlas Standard</h2><span class="grow"></span>
+              <span class="faint" style="font-size:var(--fs-2);white-space:nowrap" x-text="standardDay()"></span></div>
+            <div class="card-b">
+              <template x-if="!standard"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-check"/></svg></span><div><b>Measuring…</b></div></div></template>
+              <template x-for="r in (standard ? standard.rows : [])" :key="r.key">
+                <div class="std" :title="r.detail">
+                  <span class="dot" :class="r.status"></span>
+                  <div class="grow"><div class="nm" x-text="r.name"></div><div class="crit" x-text="r.bar"></div>
+                    <div class="muted clamp2" style="font-size:var(--fs-2);margin-top:3px" x-text="r.detail"></div></div>
+                  <div class="val" :class="r.status" x-text="r.value"></div>
+                </div>
+              </template>
+              <div class="actions" style="margin-top:10px;align-items:center" x-show="standard">
+                <span class="faint" style="font-size:var(--fs-2)" x-text="standardSummary()"></span><span class="grow"></span>
+                <button class="btn sm" x-show="standard && !standard.started" :disabled="standardBusy" @click="standardStart()">Start the 14-day test</button></div>
+            </div>
+          </div>
+  </div>
+</section>

@@ -1,0 +1,31 @@
+# Prompt budgets per agent, checked in CI by tests/test_prompt_budgets.py.
+#
+# A prompt that grows past its budget fails the build, so a jump like the one
+# on 2026-10-15 (the CEO's cached prefix doubling unnoticed, about $0.13 more
+# per brief) is caught the day it lands, not two weeks later.
+#
+# Units: characters / 3, rounded up. CI has no API key, so this is a fixed
+# estimate, not the token-count endpoint. Calibrated 2026-10-22 against that
+# endpoint: the CEO's system prompt and playbook counted 4,962 tokens and
+# estimate 4,751 here. Tool definitions count higher for real than here,
+# since the API adds its own tool-use preamble, but the estimate moves when
+# they do, which is what a budget needs.
+#
+# system: agents/<name>/system.md. tools: the agent's own tool definitions
+# plus its server tools (remote MCP tools are excluded; they ride only on
+# runs that need them, see core/runtime/external.py). Budgets are the
+# 2026-10-22 size plus about 15 percent. Raising one is a decision: say why
+# in the commit.
+
+ceo: {system: 5500, tools: 4200}
+academic: {system: 2200, tools: 700}
+build: {system: 1600, tools: 1100}
+career: {system: 1700, tools: 2000}  # +100 on 2026-10-23: the shared voice rule (core/runtime/agent.py VOICE_RULE)
+cfo: {system: 2100, tools: 3100}
+client_delivery: {system: 2200, tools: 1500}
+coo: {system: 2200, tools: 2900}
+cto: {system: 1500, tools: 1500}  # +400 on 2026-10-24: the three capability tools (core/capabilities/retrieval.py)
+news_discovery: {system: 2900, tools: 1800}
+opportunity_scout: {system: 2100, tools: 1000}
+personal_ops: {system: 1600, tools: 1300}
+property_ops: {system: 2000, tools: 1100}

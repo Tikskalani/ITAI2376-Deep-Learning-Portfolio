@@ -1,0 +1,32 @@
+name: client_status_update
+description: >
+  Draft a weekly status update for one client project, get Trilok's yes on
+  the text, then put it in his Gmail drafts. He sends it himself.
+version: 1
+steps:
+  - agent: client_delivery
+    task: |
+      Write this week's status update for the project "{owner_input}" in
+      Trilok's voice. Recall what you know about the project, use the
+      signals Atlas has seen (commits, PRs, client mail), and keep it
+      short: what shipped, what is next, anything you need from the
+      client. Reply with only the email body, no subject line, no
+      greeting beyond the client's first name.
+  - type: approval
+    summary: "Send this status update draft for {owner_input} to Gmail drafts?"
+    payload:
+      project: "{owner_input}"
+      text: "{step_1_output}"
+  - agent: client_delivery
+    task: |
+      Trilok approved this status update for "{owner_input}":
+      ---
+      {step_2_output}
+      ---
+      Create the Gmail draft with draft_email: the client's address from
+      memory (recall it; if you do not know it, say so and do not guess),
+      subject "{owner_input}: status update, {today}", and the approved
+      text as the body. Report the draft link.
+  - type: notify
+    title: "Status update draft ready: {owner_input}"
+    body: "{step_3_output}"

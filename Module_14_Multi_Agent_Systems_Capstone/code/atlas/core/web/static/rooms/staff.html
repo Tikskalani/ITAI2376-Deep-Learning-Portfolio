@@ -1,0 +1,104 @@
+<section class="room" data-room="staff" x-show="room === 'staff'" x-cloak aria-label="Staff">
+  <div class="room-head"><h1 class="room-title">Staff</h1>
+    <div class="subnav" role="tablist" aria-label="Staff">
+      <button role="tab" :aria-selected="String(sub.staff === 'agents')" @click="goRoom('staff', 'agents')">Agents <span class="badge acc" x-show="agents.filter(a => a.recentlyActive).length" x-text="agents.filter(a => a.recentlyActive).length"></span></button>
+      <button role="tab" :aria-selected="String(sub.staff === 'runs')" @click="goRoom('staff', 'runs')">Runs</button>
+      <button role="tab" :aria-selected="String(sub.staff === 'playbook')" @click="goRoom('staff', 'playbook')">Playbook <span class="badge acc" x-show="skills.length" x-text="skills.length"></span></button>
+    </div>
+  </div>
+  <div class="sub" data-sub="agents" x-show="sub.staff === 'agents'">
+<div class="staff-two">
+  <div class="roster" id="agents">
+    <template x-if="agents.length === 0"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-agents"/></svg></span><div><b>Roster coming online.</b></div></div></template>
+    <template x-for="a in agents" :key="a.name">
+      <button class="agent" :class="{active: a.recentlyActive}" :aria-pressed="String(agentSel === a.name)" @click="openAgent(a.name)" :title="'Open ' + agentName(a.name) + '\'s record'">
+        <div class="top"><span class="mono-av lg" :style="avStyle(a.name)" x-text="monogram(a.name)"></span>
+          <div><div class="nm" x-text="agentName(a.name)"></div><div class="tier" x-text="a.tier === 'ceo' ? 'Chief executive' : a.tier"></div></div><span class="st"></span></div>
+        <div class="foot"><span><b x-text="a.runs_7d"></b> <span x-text="a.runs_7d === 1 ? 'run' : 'runs'"></span> this week</span><span x-text="agentLastLabel(a)"></span></div>
+        <template x-if="a.monthly_cap"><div class="bar"><i :class="capClass(a)" :style="'width:' + capPct(a) + '%'"></i></div></template>
+      </button>
+    </template>
+  </div>
+  <div class="card agent-page" id="agent-page">
+    <template x-if="!agentSel"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-agents"/></svg></span><div><b>Pick an agent.</b>Each one's record: what it is for, how its runs went, what it spent, and why it did what it did.</div></div></template>
+    <template x-if="agentSel && !agentPage && !agentErr"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-agents"/></svg></span><div><b>Loading the record…</b></div></div></template>
+    <template x-if="agentErr"><div class="empty" role="alert"><span class="ei"><svg class="ic"><use href="#i-alert"/></svg></span><div><b>The record did not load.</b><span x-text="agentErr"></span></div></div></template>
+    <template x-if="agentPage"><div>
+      <div class="card-h"><span class="mono-av lg" :style="avStyle(agentPage.name)" x-text="monogram(agentPage.name)"></span>
+        <h2 x-text="agentName(agentPage.name)"></h2><span class="tag" x-text="agentPage.registered ? agentPage.tier : 'retired'"></span><span class="grow"></span>
+        <button class="btn sm primary" x-show="agentPage.registered" @click="onAgentClick({name: agentPage.name})" x-text="'Ask ' + agentName(agentPage.name)"></button></div>
+      <div class="card-b" style="padding-top:0">
+        <p class="muted" style="font-size:var(--fs-3);line-height:1.5;margin:0 0 12px" x-show="agentPage.purpose" x-text="agentPage.purpose"></p>
+        <div class="stats" style="margin:0 0 12px">
+          <div class="stat"><div class="lbl">This week</div><div class="val" x-text="agentPage.runs_7d"></div><div class="hint" x-text="agentPage.failed_7d ? plural(agentPage.failed_7d, 'failed run') : 'none failed'"></div></div>
+          <div class="stat"><div class="lbl">30 days</div><div class="val" x-text="agentPage.runs_30d"></div><div class="hint" x-text="agentPage.last_active ? 'last ' + ago(agentPage.last_active) : 'never ran'"></div></div>
+          <div class="stat"><div class="lbl">This month</div><div class="val" x-text="fmtMoney(agentPage.month_spent)"></div><div class="hint" x-text="agentPage.monthly_cap ? 'of ' + fmtMoney(agentPage.monthly_cap) + ' cap' : 'no cap set'"></div></div>
+        </div>
+        <details class="payload" x-show="agentPage.tools.length"><summary><svg class="ic sm"><use href="#i-chev"/></svg><span x-text="plural(agentPage.tools.length, 'tool')"></span></summary>
+          <div class="row-meta" style="flex-wrap:wrap"><template x-for="t in agentPage.tools" :key="t"><span class="tag dim" x-text="t"></span></template></div></details>
+        <div class="row-title" style="margin:14px 0 4px">Recent runs</div>
+        <template x-if="!agentPage.episodes.length"><div class="faint" style="font-size:var(--fs-2)">No runs yet.</div></template>
+        <template x-for="e in agentPage.episodes" :key="e.id">
+          <div class="pi">
+            <span class="k" aria-hidden="true" :style="'background:' + (e.status === 'failed' ? 'var(--rose)' : (e.status === 'incomplete' ? 'var(--amber)' : 'var(--green)'))"></span>
+            <div class="t"><span x-text="e.summary || '(no summary)'"></span><span class="pr" x-text="[ago(e.started_at), e.status && e.status !== 'ok' ? e.status : ''].filter(Boolean).join(' · ')"></span></div>
+            <button class="link" @click="openTrace(e.id)" title="Why did it do that?">Why?</button>
+          </div>
+        </template>
+      </div>
+    </div></template>
+  </div>
+</div>
+  </div>
+  <div class="sub" data-sub="runs" x-show="sub.staff === 'runs'">
+<div class="card" id="activity">
+          <div class="card-h"><svg class="ic"><use href="#i-clock"/></svg><h2>Recent runs</h2><span class="badge" x-text="episodes.length"></span></div>
+          <div class="card-b">
+            <template x-if="episodes.length === 0"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-clock"/></svg></span><div><b>No runs yet today.</b></div></div></template>
+            <template x-for="e in episodes" :key="e.id">
+              <div class="ep">
+                <span class="mono-av" :style="avStyle(e.agent)" x-text="monogram(e.agent)"></span>
+                <div class="grow">
+                  <div class="row-meta" style="margin:0"><b style="color:var(--t1);font-weight:600" x-text="agentName(e.agent)"></b><span class="sep"></span><span x-text="ago(e.started_at)"></span></div>
+                  <div class="muted clamp2" style="font-size:var(--fs-2);margin-top:3px" x-text="e.summary || '(no summary yet)'"></div>
+                  <div class="rate">
+                    <template x-if="e._rated"><span class="tag" :class="e._rated === 'good' ? 'green' : 'urgent'" x-text="'Rated ' + e._rated"></span></template>
+                    <template x-if="!e._rated"><span class="rate" style="margin:0">
+                      <button @click="rateEpisode(e, 'good')" title="This run was useful"><svg class="ic sm"><use href="#i-thumb"/></svg>Good</button>
+                      <button class="bad" @click="rateEpisode(e, 'bad')" title="This run was not"><svg class="ic sm"><use href="#i-thumb"/></svg>Bad</button>
+                    </span></template>
+                    <button class="link" @click="openTrace(e.id)" title="Why did it do that?">Why?<svg class="ic sm"><use href="#i-chev"/></svg></button>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+  </div>
+  <div class="sub" data-sub="playbook" x-show="sub.staff === 'playbook'">
+<div class="card" id="playbook">
+          <div class="card-h"><svg class="ic"><use href="#i-book"/></svg><h2>Playbook</h2><span class="badge" x-text="skills.length"></span><span class="grow"></span><span class="faint" style="font-size:var(--fs-2)">Only skills marked "In prompts" reach a run</span></div>
+          <div class="card-b">
+            <template x-if="skills.length === 0"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-book"/></svg></span><div><b>Nothing adopted yet.</b>Adopt a learning and it lands here as reference.</div></div></template>
+            <template x-for="k in skills" :key="k.id">
+              <div class="skill">
+                <div style="display:flex;align-items:center;gap:8px"><span class="ttl grow" x-text="k.title"></span>
+                  <span class="tag" :class="k.injected ? 'green' : ''" x-text="k.injected ? 'In prompts' : 'Reference only'"></span>
+                  <span class="tag" :class="k.status === 'trial' ? 'soon' : 'green'" x-text="k.status === 'trial' ? 'In trial' : 'Active'"></span></div>
+                <pre class="block" x-text="k.body"></pre>
+                <div class="row-meta"><span x-text="provenanceLabel(k)"></span><span class="sep"></span><span x-text="k.applies_to.join(', ')"></span><span class="sep"></span><span x-text="'used ' + k.uses + '×'"></span><span class="sep"></span><span x-text="k.good + ' good · ' + k.bad + ' bad'"></span></div>
+                <div class="actions">
+                  <template x-if="k._busy"><span class="status-txt">Working…</span></template>
+                  <template x-if="!k._busy"><span class="actions" style="margin:0">
+                    <button class="btn sm ok" x-show="k.provenance === 'agent_reflection' && k.review !== 'approved'" @click="reviewSkill(k, 'approved')" title="It stays Atlas-written; your approval is recorded separately">Approve for prompts</button>
+                    <button class="btn sm" x-show="k.review === 'approved'" @click="reviewSkill(k, 'revoked')">Revoke approval</button>
+                    <button class="btn sm ok" x-show="k.status === 'trial' && k.provenance === 'user_authored'" @click="keepSkill(k)">Keep</button>
+                    <button class="btn sm danger" @click="retireSkill(k)">Retire</button>
+                  </span></template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+  </div>
+</section>

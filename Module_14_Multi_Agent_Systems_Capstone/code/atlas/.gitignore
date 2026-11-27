@@ -1,0 +1,40 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+/build/
+dist/
+.venv/
+venv/
+
+# Tests / type checking
+.pytest_cache/
+pytest-cache-files-*/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Logs and local data
+logs/
+*.log
+/data/
+backups/
+transcripts/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Docker volume mount targets (if any get created locally)
+.postgres-data/
+.ollama-data/

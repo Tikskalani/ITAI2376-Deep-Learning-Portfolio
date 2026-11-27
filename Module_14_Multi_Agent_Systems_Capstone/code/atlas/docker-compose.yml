@@ -1,0 +1,110 @@
+# Atlas stack.
+#
+# Infrastructure (always on): Postgres 16 with pgvector, Ollama for local embeddings.
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#                                               infra with loopback host access
+#
+# Application (profile "app"): the web surface and the worker, from ./Dockerfile.
+#   docker compose --profile app up -d --build full stack in containers (VPS, parity runs)
+#
+# On the laptop, web and worker run natively as Windows services instead
+# (scripts/install_windows_service.ps1). Run one mode or the other, never both:
+# two workers means two schedulers, which means every brief and loop tick twice.
+#
+# Tear down:   docker compose --profile app down    (keeps volumes)
+# Reset:       docker compose --profile app down -v (destroys data)
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: atlas-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-atlas}
+      POSTGRES_USER: ${POSTGRES_USER:-atlas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - atlas_pgdata:/var/lib/postgresql/data
+      - ./db/migrations:/migrations:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-atlas} -d ${POSTGRES_DB:-atlas}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: atlas-ollama
+    restart: unless-stopped
+    volumes:
+      - atlas_ollama:/root/.ollama
+    # GPU is optional. Uncomment if you have an NVIDIA card and the toolkit installed.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # -- Application (profile "app") ---------------------------------------------
+  # Both services read .env for secrets, then point Postgres and Ollama at the
+  # compose network instead of the host ports .env uses for native processes.
+
+  web:
+    build: .
+    image: atlas-app:latest
+    container_name: atlas-web
+    profiles: ["app"]
+    restart: unless-stopped
+    command: ["python", "-m", "scripts.run_web", "--host", "0.0.0.0", "--port", "8000"]
+    env_file: .env
+    environment: &app_env
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      OLLAMA_URL: http://ollama:11434
+    # Loopback only. Remote access goes through the Cloudflare Tunnel, which
+    # connects to localhost; never publish this port on 0.0.0.0.
+    ports:
+      - "127.0.0.1:${ATLAS_WEB_PORT:-8000}:8000"
+    volumes: &app_volumes
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+      # Adopted learnings write new procedures here; git is their audit trail.
+      - ./procedures:/app/procedures
+      - atlas_models:/home/atlas/.cache
+    depends_on: &app_depends
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  worker:
+    build: .
+    image: atlas-app:latest
+    container_name: atlas-worker
+    profiles: ["app"]
+    restart: unless-stopped
+    # scripts/run_worker.py lands with the R1 notify-and-approvals branch.
+    command: ["python", "-m", "scripts.run_worker"]
+    env_file: .env
+    environment: *app_env
+    volumes: *app_volumes
+    depends_on: *app_depends
+
+volumes:
+  atlas_pgdata:
+  atlas_ollama:
+  # faster-whisper and Hugging Face model downloads, kept across rebuilds.
+  atlas_models:

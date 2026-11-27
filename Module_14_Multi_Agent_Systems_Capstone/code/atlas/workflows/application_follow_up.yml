@@ -1,0 +1,36 @@
+name: application_follow_up
+description: >
+  Ten days after an application with no movement, draft a short follow-up
+  for Trilok's approval and put it in Gmail drafts.
+version: 1
+steps:
+  - agent: client_delivery
+    task: |
+      Trilok applied for "{owner_input}" and has heard nothing for over a
+      week. Recall what you know about the application (company, role,
+      recruiter, what was sent). Draft a two-paragraph follow-up in his
+      voice: a reminder of the role and date, one line of continued
+      interest with a specific reason, a plain ask for a status. No
+      pleading, no exclamation marks. Reply with the email body only.
+  - type: condition
+    source: "{step_1_output}"
+    contains: "do not know"
+    on_false: skip_next
+  - type: notify
+    title: "Follow-up needs details: {owner_input}"
+    body: "{step_1_output}"
+    priority: normal
+  - type: approval
+    summary: "Put this follow-up for {owner_input} in Gmail drafts?"
+    payload:
+      application: "{owner_input}"
+      text: "{step_1_output}"
+  - agent: client_delivery
+    task: |
+      Trilok approved this follow-up for "{owner_input}". Create the Gmail
+      draft with draft_email: recipient from memory (do not guess; if
+      unknown, say so), subject "Following up: {owner_input}", body:
+      ---
+      {step_1_output}
+      ---
+      Report the draft link.

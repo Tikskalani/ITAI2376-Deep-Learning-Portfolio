@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "Atlas",
+  "short_name": "Atlas",
+  "description": "Trilok's private executive function: briefs, approvals, and what arrived.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#04060A",
+  "theme_color": "#04060A",
+  "icons": [
+    { "src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Approvals", "url": "/#approvals", "description": "Open cards waiting on you" },
+    { "name": "Inbox", "url": "/#inbox", "description": "Everything Atlas told you" }
+  ]
+}

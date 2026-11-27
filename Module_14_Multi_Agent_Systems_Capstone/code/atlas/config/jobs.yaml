@@ -1,0 +1,58 @@
+# Example job-search config (personal values removed).
+profile:
+  headline: AI student building agentic applications with tool use, approval gates
+    and evals.
+  evidence:
+  - 'Example project: a multi-agent assistant with a fail-closed tool policy and CI
+    evals.'
+  titles:
+  - forward deployed
+  - ai solutions
+  - solutions engineer
+  - applied ai
+  - ai engineer
+  - llm engineer
+  - ai agent
+  - agentic
+  - ml engineer
+  - machine learning engineer
+  - automation engineer
+  - ai developer
+  exclude_titles:
+  - director
+  - vice president
+  - head of
+  - manager
+  - intern
+  - sales
+  - account executive
+  - recruiter
+  - phd
+  locations:
+  - houston
+  - texas
+  - remote
+  - united states
+  - us
+  salary_floor_usd: 0  # set your own floor
+  brief_min_score: 70
+queue:
+  daily_cap: 5
+  min_score: 80
+  company_cooldown_days: 30
+  draft_concurrency: 2
+submit:
+  dry_run: true
+  headless: true
+  per_run: 5
+  adapter_window: 5
+  adapter_min_success: 0.5
+companies:
+# Add the public job boards you want watched. Example shape:
+- name: Example AI Co
+  source: greenhouse
+  board: example-ai-co
+- name: Example Labs
+  source: ashby
+  board: example-labs
+applications: []

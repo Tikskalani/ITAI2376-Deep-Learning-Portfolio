@@ -1,0 +1,34 @@
+name: monthly_pnl
+description: |
+  End-of-month P&L brief. CFO summarizes the books, COO overlays the
+  calendar for next month, CEO synthesizes a one-page brief.
+
+steps:
+  - agent: cfo
+    task: |
+      It is {today}. Pull together a P&L summary for {month}. Hit income,
+      expenses, net, the three largest variances vs the prior month, and
+      anything that looks unusual. Keep it factual.
+
+  - agent: coo
+    task: |
+      Looking at this CFO summary for {month}:
+      ---
+      {step_1_output}
+      ---
+      Cross-reference upcoming calendar commitments for the next 30 days.
+      Flag anything in the calendar that affects the financial picture
+      (new bills, course payments, supplier deposits, etc).
+
+  - agent: ceo
+    task: |
+      Compose Trilok's monthly P&L brief for {month}. Two parts:
+      1. What happened (use the CFO input).
+      2. What's coming (use the COO input).
+      End with one decision worth thinking about.
+
+      CFO input:
+      {step_1_output}
+
+      COO input:
+      {step_2_output}

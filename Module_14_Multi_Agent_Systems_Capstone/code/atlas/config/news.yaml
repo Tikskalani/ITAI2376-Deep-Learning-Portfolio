@@ -1,0 +1,40 @@
+# The trusted feeds behind the morning AI brief (core/news.py).
+#
+# Every feed here answered with a real RSS or Atom document on 2026-10-11.
+# Anthropic's site has no feed; its news reaches the brief through Hacker
+# News and Simon Willison. arXiv is deliberately absent: a hundred papers a
+# day is not a brief. Add a feed with a name and a URL; remove one by
+# deleting its lines. The scan skips a feed that fails and says so in the
+# log, so a dead feed costs nothing but a line.
+
+feeds:
+  - name: OpenAI
+    url: https://openai.com/news/rss.xml
+  - name: Google DeepMind
+    url: https://deepmind.google/blog/rss.xml
+  - name: Google AI
+    url: https://blog.google/technology/ai/rss/
+  - name: Hugging Face
+    url: https://huggingface.co/blog/feed.xml
+  - name: Simon Willison
+    url: https://simonwillison.net/atom/everything/
+  - name: Hacker News (AI, 150+ points)
+    url: https://hnrss.org/newest?q=AI&points=150
+  - name: MCP blog
+    url: https://blog.modelcontextprotocol.io/index.xml
+  - name: Latent Space
+    url: https://www.latent.space/feed
+  - name: Interconnects
+    url: https://www.interconnects.ai/feed
+  - name: Import AI
+    url: https://importai.substack.com/feed
+  - name: Microsoft Research
+    url: https://www.microsoft.com/en-us/research/feed/
+  - name: Meta Engineering
+    url: https://engineering.fb.com/feed/
+
+# How far back a story may be dated and still count as new on the first
+# morning it is seen.
+window_hours: 36
+# How many stories a brief carries at most.
+picks: 6

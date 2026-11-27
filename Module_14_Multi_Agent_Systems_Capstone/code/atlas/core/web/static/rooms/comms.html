@@ -1,0 +1,153 @@
+<section class="room" data-room="comms" x-show="room === 'comms'" x-cloak aria-label="Chat">
+  <div class="room-head"><h1 class="room-title">Chat</h1>
+    <div class="subnav" role="tablist" aria-label="Chat">
+      <button role="tab" :aria-selected="String(sub.comms === 'channel')" @click="goRoom('comms', 'channel')">Channel</button>
+      <button role="tab" :aria-selected="String(sub.comms === 'briefings')" @click="goRoom('comms', 'briefings')">Briefings <span class="badge acc" x-show="briefs.length" x-text="briefs.length"></span></button>
+      <button role="tab" :aria-selected="String(sub.comms === 'recordings')" @click="goRoom('comms', 'recordings')">Recordings <span class="badge acc" x-show="recordings.length" x-text="recordings.length"></span></button>
+    </div>
+  </div>
+  <div class="sub" data-sub="channel" x-show="sub.comms === 'channel'">
+  <div class="chat-bar">
+    <span class="faint chat-now" x-text="chatThread ? ((threads.find(t => t.id === chatThread) || {}).title || 'This conversation') : 'New conversation'"></span>
+    <span class="grow"></span>
+    <button class="btn sm" @click="newChat()" :disabled="pending || (!chatThread && !messages.length)">New chat</button>
+    <button class="btn sm" @click="toggleHistory()" :aria-expanded="String(historyOpen)" aria-controls="chat-history">History</button>
+  </div>
+  <div class="card chat-history" id="chat-history" x-show="historyOpen" x-cloak>
+    <template x-if="!threads.length"><div class="empty" style="padding:14px 16px"><div><b>No conversations yet.</b>What you ask the CEO is kept here.</div></div></template>
+    <template x-for="t in threads" :key="t.id">
+      <button class="chat-thread" :aria-current="t.id === chatThread ? 'true' : null" @click="openThread(t.id)">
+        <b x-text="t.title"></b><span class="faint" x-text="plural(t.messages, 'message') + ' · ' + ago(t.last_at)"></span>
+      </button>
+    </template>
+  </div>
+<section class="v-chat" id="chat" aria-label="Conversation">
+    <div class="chat-log" x-ref="log" aria-live="polite">
+      <div class="chat-col">
+        <template x-if="messages.length === 0 && !pending">
+          <div class="chat-empty">
+            <svg class="mark-xl" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#7FB2FF" stroke-width="1"/><circle cx="13" cy="13" r="2.6" fill="#D8F0FF"/><circle cx="13" cy="3" r="1.8" fill="#7FB2FF"/><circle cx="21.7" cy="18" r="1.8" fill="#7FB2FF"/><circle cx="4.3" cy="18" r="1.8" fill="#7FB2FF"/></svg>
+            <div class="ch-open">THE CEO IS LISTENING</div>
+            <h2>What should we work on?</h2>
+            <p>The CEO knows your projects, deadlines and what arrived today.</p>
+            <div class="starters">
+              <template x-for="s in starters" :key="s.title">
+                <button class="starter" @click="draft = s.prompt; send()"><b x-text="s.title"></b><span x-text="s.sub"></span></button>
+              </template>
+            </div>
+          </div>
+        </template>
+        <template x-for="m in messages" :key="m.id">
+          <div class="m" :class="m.who">
+            <template x-if="m.who === 'user'"><div class="bubble" x-text="m.body"></div></template>
+            <template x-if="m.who !== 'user'">
+              <span class="orb sm" :class="{thinking: pending && !m.body}" aria-hidden="true" style="margin-top:2px"></span>
+            </template>
+            <template x-if="m.who !== 'user'">
+              <div class="grow">
+                <div class="who"><span x-text="m.who === 'saved' ? 'Saved to memory' : 'CEO'"></span><button class="meta link" x-show="m.meta" :title="m.episode_id ? 'Why did it do that?' : ''" @click="m.episode_id && openTrace(m.episode_id)" x-text="m.meta"></button></div>
+                <template x-if="!m.body"><div class="typing" aria-label="Composing"><i></i><i></i><i></i></div></template>
+                <div class="body" x-show="m.body" x-text="m.body"></div>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+    </div>
+    <div class="composer-wrap">
+      <div class="composer">
+        <div class="chips" x-show="attachments.length">
+          <template x-for="(a, i) in attachments" :key="i">
+            <span class="fchip" :class="{uploading: a._uploading}">
+              <svg class="ic sm"><use href="#i-doc"/></svg><span x-text="a.filename"></span>
+              <span class="sz" x-text="a._uploading ? 'uploading' : (a.chars || 0).toLocaleString() + ' chars'"></span>
+              <button x-show="!a._uploading" @click="removeAttachment(i)" aria-label="Remove attachment"><svg class="ic sm"><use href="#i-x"/></svg></button>
+            </span>
+          </template>
+        </div>
+        <textarea x-model="draft" rows="1" aria-label="Message the CEO"
+                  @keydown.enter="if (!$event.shiftKey && !$event.isComposing) { $event.preventDefault(); send(); }"
+                  :disabled="pending" :placeholder="composerPlaceholder()"></textarea>
+        <div class="tools">
+          <button class="round" @click="$refs.fileInput.click()" :disabled="pending" title="Attach a file" aria-label="Attach a file"><svg class="ic"><use href="#i-clip"/></svg></button>
+          <input type="file" x-ref="fileInput" class="sr" tabindex="-1"
+                 accept=".txt,.md,.markdown,.csv,.tsv,.json,.log,.py,.js,.ts,.html,.css,.yml,.yaml,.sql,.pdf,text/*" @change="onFilePicked($event)" />
+          <!-- One mic: click to dictate (or stop); the menu holds hands-free talk and read-aloud. -->
+          <span class="mic-group" @keydown.escape="voiceMenu = false" @click.outside="voiceMenu = false">
+            <button class="round" :aria-pressed="String(listening || convoMode)" @click="convoMode ? toggleConvo() : toggleMic()" :disabled="pending && !convoMode"
+              :title="convoMode ? 'Talking hands-free. Click to stop' : (listening ? 'Listening. Click to stop' : 'Dictate (Alt+M). Hold Space anywhere to talk')" :aria-label="convoMode ? 'Stop talking' : 'Dictate'"><svg class="ic"><use href="#i-mic"/></svg></button>
+            <button class="round mic-more" @click="voiceMenu = !voiceMenu" :aria-expanded="String(voiceMenu)" aria-haspopup="menu" aria-label="Voice options" title="Voice options"><svg class="ic sm"><use href="#i-chev"/></svg></button>
+            <span class="mic-menu card" role="menu" x-show="voiceMenu" x-cloak>
+              <button role="menuitemradio" :aria-checked="String(!convoMode)" @click="if (convoMode) toggleConvo(); voiceMenu = false"><b>Dictate</b><span>Click the mic, speak, it types. Alt+M.</span></button>
+              <button role="menuitemradio" :aria-checked="String(convoMode)" @click="if (!convoMode) toggleConvo(); voiceMenu = false"><b x-text="convoMode && listening ? 'Talk (listening)' : 'Talk hands-free'"></b><span>A back-and-forth: it listens, answers aloud, listens again.</span></button>
+              <button role="menuitemcheckbox" :aria-checked="String(speakOn)" @click="toggleSpeak()"><b x-text="(speakOn ? '✓ ' : '') + 'Read replies aloud'"></b><span>Hold Space anywhere to talk without opening this.</span></button>
+            </span>
+          </span>
+          <span class="vsep"></span>
+          <button class="toggle learn" :aria-pressed="String(learnMode)" @click="toggleLearn()" title="Remember: each message is saved to Memory as a fact instead of going to the CEO">
+            <svg class="ic sm"><use href="#i-book"/></svg><span x-text="learnMode && learnCount ? 'Remember · ' + learnCount : 'Remember'"></span></button>
+          <span class="grow"></span>
+          <button class="round go" @click="send()" :disabled="pending || !draft.trim()" :aria-label="learnMode ? 'Save to memory' : 'Send'"><svg class="ic"><use href="#i-up"/></svg></button>
+        </div>
+      </div>
+      <div class="err" style="max-width:760px;margin:10px auto 0" x-show="error" x-text="error" role="alert"></div>
+      <div class="hint-line">Enter to send · Shift+Enter for a new line · Hold Space to talk · Ctrl K for commands</div>
+    </div>
+  </section>
+  </div>
+  <div class="sub" data-sub="briefings" x-show="sub.comms === 'briefings'">
+<div class="card" id="news" style="margin-top:16px">
+        <div class="card-h"><svg class="ic"><use href="#i-bolt"/></svg><h2>AI this morning</h2>
+          <span class="faint" style="font-size:var(--fs-2)" x-show="news && news.latest" x-text="news && news.latest ? ago(news.latest.created_at) + ' · ' + plural(news.latest.considered, 'story') + ' read' : ''"></span>
+          <span class="grow"></span>
+          <button class="btn sm ghost" x-show="news && news.latest" @click="openBrief(news.latest.id)">Read the brief</button>
+          <button class="btn sm" :disabled="newsBusy" @click="newsRun()" x-text="newsBusy ? 'Reading…' : 'Run now'"></button></div>
+        <div class="card-b" style="padding-top:0">
+          <template x-if="!news || !news.picks.length"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-bolt"/></svg></span><div><b>No brief yet.</b>Every morning at 6:45 Atlas reads the trusted feeds (OpenAI, DeepMind, Hugging Face, Simon Willison, Hacker News, the MCP blog and more) and keeps the few stories that change what you would do.</div></div></template>
+          <template x-for="p in (news ? news.picks : [])" :key="p.id">
+            <div class="pi" style="margin-top:10px">
+              <span class="k event" aria-hidden="true"></span>
+              <div class="t"><a :href="p.url || '#'" target="_blank" rel="noopener" style="color:var(--t1);font-weight:500;text-decoration:none" x-text="p.title"></a>
+                <span class="pr" style="color:var(--t2);font-size:var(--fs-2);margin-top:2px" x-text="p.why"></span>
+                <span class="pr" x-text="p.source + (p.published_at ? ' · ' + ago(p.published_at) : '')"></span></div>
+            </div>
+          </template>
+        </div>
+      </div>
+<div class="card" id="briefs">
+            <div class="card-h"><svg class="ic"><use href="#i-doc"/></svg><h2>Briefs</h2><span class="badge" x-text="briefs.length"></span></div>
+            <div class="card-b">
+              <template x-if="briefs.length === 0"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-doc"/></svg></span><div><b>No briefs yet.</b>The morning brief lands at 8:00, the evening one at 20:00.</div></div></template>
+              <template x-for="b in briefs" :key="b.id">
+                <button class="row" style="display:block;width:100%" @click="openBrief(b.id)">
+                  <div style="display:flex;gap:8px;align-items:center"><span class="tag acc" x-text="briefLabel(b.kind)"></span><span class="grow"></span><span class="faint" style="font-size:var(--fs-2)" x-text="ago(b.created_at)"></span></div>
+                  <div class="brief-text clamp3" style="font-size:var(--fs-3)" x-text="b.body"></div>
+                </button>
+              </template>
+            </div>
+          </div>
+  </div>
+  <div class="sub" data-sub="recordings" x-show="sub.comms === 'recordings'">
+<div class="card" id="recordings">
+          <div class="card-h"><svg class="ic"><use href="#i-rec"/></svg><h2>Recordings</h2><span class="badge" x-text="recordings.length"></span><span class="grow"></span>
+            <label class="btn sm" style="cursor:pointer">Upload<input type="file" accept="audio/*,video/mp4,.m4a,.webm,.mp3,.wav,.caf,.ogg" style="display:none" @change="recUpload($event.target.files[0]); $event.target.value = ''" /></label>
+            <button class="btn sm primary" :disabled="rec.active || rec.busy" @click="recStart()"><svg class="ic sm"><use href="#i-rec"/></svg>Record</button></div>
+          <div class="card-b">
+            <template x-if="rec.err"><div class="status-txt err" role="alert" x-text="rec.err"></div></template>
+            <template x-if="!recordings.length"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-rec"/></svg></span><div><b>Nothing recorded yet.</b>Record a lecture or a meeting here (an hour or two is fine), or upload a Voice Memo from your phone. Atlas transcribes it on this laptop and writes notes and action items.</div></div></template>
+            <template x-for="r in recordings" :key="r.id">
+              <div class="nt">
+                <div class="ttl"><b x-text="r.title"></b><span class="tag" x-text="r.kind"></span><span class="tag" :class="recTone(r.status)" x-text="recLabel(r.status)"></span></div>
+                <div class="row-meta" style="margin:3px 0 0"><span x-text="ago(r.created_at)"></span><template x-if="r.duration_s"><span><span class="sep"></span><span x-text="Math.round(r.duration_s / 60) + ' min'"></span></span></template><template x-if="r.action_items && r.action_items.length"><span><span class="sep"></span><span x-text="plural(r.action_items.length, 'action item')"></span></span></template></div>
+                <div class="res err" x-show="r.error" x-text="r.error"></div>
+                <div class="actions"><span class="actions" style="margin:0">
+                  <button class="btn sm primary" x-show="r.status === 'done'" @click="recOpen(r)">Notes</button>
+                  <button class="btn sm" x-show="r.status === 'failed'" @click="recRetry(r)">Retry</button>
+                  <button class="btn sm ghost" x-show="r.episode_id" @click="openTrace(r.episode_id)">Why?</button>
+                </span></div>
+              </div>
+            </template>
+          </div>
+        </div>
+  </div>
+</section>

@@ -1,0 +1,13 @@
+# Safe local-development override.
+#
+# The base compose file keeps infrastructure on the compose network only.
+# Use this file when native Windows services or local CLI tools need host access.
+# Both bindings are loopback-only and are never reachable from the LAN.
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5434}:5432"
+
+  ollama:
+    ports:
+      - "127.0.0.1:${OLLAMA_PORT:-11435}:11434"

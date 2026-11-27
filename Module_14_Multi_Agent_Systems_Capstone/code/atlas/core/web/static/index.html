@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Atlas</title>
+<meta name="description" content="Atlas: Trilok's private executive function. Approvals, briefs, what arrived, and the CEO." />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Crect width='26' height='26' rx='6' fill='%2304060A'/%3E%3Ccircle cx='13' cy='13' r='9' fill='none' stroke='%237FB2FF' stroke-width='1.3'/%3E%3Ccircle cx='13' cy='13' r='2.6' fill='%23D8F0FF'/%3E%3Ccircle cx='13' cy='4' r='1.8' fill='%237FB2FF'/%3E%3Ccircle cx='20.8' cy='17.5' r='1.8' fill='%237FB2FF'/%3E%3Ccircle cx='5.2' cy='17.5' r='1.8' fill='%237FB2FF'/%3E%3C/svg%3E" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<meta name="theme-color" content="#04060A" />
+<meta name="color-scheme" content="dark" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Atlas" />
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=Martian+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="/static/vendor/d3-7.9.0.min.js"></script>
+<link rel="stylesheet" href="/static/atlas/tokens.css" />
+<link rel="stylesheet" href="/static/atlas/hud.css" />
+<link rel="stylesheet" href="/static/atlas/shell.css" />
+<link rel="stylesheet" href="/static/atlas/rooms.css" />
+<link rel="stylesheet" href="/static/atlas/core.css" />
+<script src="/static/atlas/fetch-guard.js"></script>
+<script src="/static/atlas/demo.js"></script>
+<script src="/static/atlas/shell.js"></script>
+<script src="/static/atlas/dial.js"></script>
+<script src="/static/atlas/app.js"></script>
+<script src="/static/atlas/neural-core.js"></script>
+<script src="/static/atlas/boot.js" defer></script>
+</head>
+<body x-data="atlas()" :data-view="view" :data-room="room">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7V20a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20.5 12a8.5 8.5 0 0 1-12.3 7.6L3.5 20.5l1-4.4A8.5 8.5 0 1 1 20.5 12z"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3 13.5h5l1.5 2.5h5l1.5-2.5h5"/><path d="M5.5 5h13l2.5 8.5V19a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5.5z"/></symbol>
+  <symbol id="i-agents" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.2 19.5a5.8 5.8 0 0 1 11.6 0"/><circle cx="17.2" cy="9.2" r="2.5"/><path d="M15.8 14.4a4.6 4.6 0 0 1 5.2 4.6"/></symbol>
+  <symbol id="i-learn" viewBox="0 0 24 24"><path d="M11 3.5l1.9 4.9 4.9 1.9-4.9 1.9L11 17.1l-1.9-4.9-4.9-1.9 4.9-1.9z"/><path d="M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></symbol>
+  <symbol id="i-ledger" viewBox="0 0 24 24"><path d="M4 20V13M9.5 20V8M15 20v-5M20.5 20V4M2.5 20.5h19"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20.5 20.5 16 16"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 21a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M18.5 11.5a6.5 6.5 0 0 1-13 0M12 18v3"/></symbol>
+  <symbol id="i-rec" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="M20.5 11.5 12.1 20a5.5 5.5 0 0 1-7.8-7.8l8.4-8.4a3.7 3.7 0 0 1 5.2 5.2l-8.4 8.4a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></symbol>
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></symbol>
+  <symbol id="i-wave" viewBox="0 0 24 24"><path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M6 3.5h12V21l-6-4-6 4z"/></symbol>
+  <symbol id="i-branch" viewBox="0 0 24 24"><circle cx="6.5" cy="5.5" r="2"/><circle cx="6.5" cy="18.5" r="2"/><circle cx="17.5" cy="7.5" r="2"/><path d="M6.5 7.5v9M17.5 9.5a6 6 0 0 1-6 6H8.5"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.8 6.8 12 13l8.2-6.2"/></symbol>
+  <symbol id="i-cap" viewBox="0 0 24 24"><path d="M2.5 9 12 4.5 21.5 9 12 13.5z"/><path d="M6.5 11v4.5c0 1.5 2.5 3 5.5 3s5.5-1.5 5.5-3V11M21.5 9v5"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2.5 4.5 14H11l-1 7.5L18.5 10H12z"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-graph" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="10" cy="18" r="2.5"/><path d="M8.4 6.6l7.2 1M7.2 8.2l1.8 7.4M16.4 10l-4.6 6.3"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-thumb" viewBox="0 0 24 24"><path d="M7 11v9H4v-9zM7 11l4-7.5a2 2 0 0 1 2.2 2V10h5.3a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 17.3 20H7"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7.5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8.5L19 7.5V21H6z"/><path d="M14 3v5h5M9 12.5h7M9 16.5h7"/></symbol>
+  <symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 4v16M7.5 20h9M5 8h14"/><path d="M5 8l-2.5 6a2.5 2.5 0 0 0 5 0zM19 8l-2.5 6a2.5 2.5 0 0 0 5 0z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4M12 17v.5"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-r-bridge" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v3M19.5 12h-2.5"/></symbol>
+  <symbol id="i-r-comms" viewBox="0 0 24 24"><path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/></symbol>
+  <symbol id="i-r-missions" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15"/><path d="M4 9h16M9 3v4M15 3v4M8 13h3M8 16h6"/></symbol>
+  <symbol id="i-r-inbox" viewBox="0 0 24 24"><path d="M4 13l3-8h10l3 8v6H4z"/><path d="M4 13h5l1 2h4l1-2h5"/></symbol>
+  <symbol id="i-r-memory" viewBox="0 0 24 24"><circle cx="6" cy="7" r="2"/><circle cx="18" cy="7" r="2"/><circle cx="12" cy="17" r="2"/><circle cx="12" cy="10" r="1.5"/><path d="M7.5 8l3.5 1.5M16.5 8L13 9.5M12 11.5V15"/></symbol>
+  <symbol id="i-r-links" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.6 0l3-3a4 4 0 0 0-5.6-5.6L12 6.4"/><path d="M14 10a4 4 0 0 0-5.6 0l-3 3a4 4 0 0 0 5.6 5.6l1-1"/></symbol>
+  <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></symbol>
+</svg>
+
+<!-- ================= TOP BAR ================= -->
+<header class="topbar">
+  <button class="mark" @click="goRoom('bridge')" aria-label="Atlas, back to Today" title="Atlas v0.18.0"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="10" fill="none" stroke="#7FB2FF" stroke-width="1.2"/><circle cx="13" cy="13" r="2.6" fill="#D8F0FF"/><circle cx="13" cy="3" r="1.8" fill="#7FB2FF"/><circle cx="21.7" cy="18" r="1.8" fill="#7FB2FF"/><circle cx="4.3" cy="18" r="1.8" fill="#7FB2FF"/></svg>Atlas</button>
+  <nav class="tb-nav" aria-label="Rooms">
+    <template x-for="r in rooms()" :key="r.id">
+      <button @click="goRoom(r.id)" :aria-current="room === r.id ? 'page' : null" :title="r.label + ' (' + r.key + ')'"><span x-text="r.label.toUpperCase()"></span><b :class="r.tone" x-show="r.count" x-text="r.count"></b></button>
+    </template>
+  </nav>
+  <span class="grow"></span>
+  <span class="tb-demo" x-show="demo" x-cloak title="Invented data: nothing here is real. Open /?demo=0 to leave.">DEMO DATA</span>
+  <span class="tb-status" :class="{lost: health && !sysNormal()}" role="status" :title="sysTitle()"><i></i><span x-text="health ? (sysNormal() ? 'ALL SYSTEMS NORMAL' : (health.ok ? 'SOMETHING NEEDS A LOOK' : sysLabel().toUpperCase())) : 'CONNECTING'"></span></span>
+  <button class="tb-btn" @click="openPalette()" title="Search or run a command (Ctrl+K)" aria-label="Command palette"><svg class="ic sm"><use href="#i-search"/></svg><span class="kbd">CTRL K</span></button>
+  <button class="tb-btn" :aria-pressed="String(focus)" @click="toggleFocus()" title="Focus mode: calm the screen for reading (F)" aria-label="Focus mode"><svg class="ic sm"><use href="#i-monitor"/></svg><span class="tb-label">FOCUS</span></button>
+  <button class="tb-btn" :aria-pressed="String(pushOn)" @click="togglePush()" :disabled="pushBusy" :title="pushTitle()" aria-label="Push notifications"><svg class="ic sm"><use href="#i-bell"/></svg></button>
+</header>
+
+<!-- ================= ROOMS ================= -->
+<main x-ref="main" class="rooms" :data-room="room" @scroll.passive="scrolled = $event.target.scrollTop > 4" :class="{scrolled}">
+  <div data-slot="bridge"></div>
+  <div data-slot="comms"></div>
+  <div data-slot="plan"></div>
+  <div data-slot="career"></div>
+  <div data-slot="staff"></div>
+  <div data-slot="inbox"></div>
+  <div data-slot="memory"></div>
+  <div data-slot="settings"></div>
+</main>
+
+<!-- ================= ARC DOCK ================= -->
+<nav class="dock" aria-label="Rooms">
+  <template x-for="r in rooms()" :key="r.id">
+    <button class="mod" @click="goRoom(r.id)" :aria-current="room === r.id ? 'page' : null" :title="r.label + ' (' + r.key + ')'">
+      <svg class="ic"><use :href="'#i-' + r.icon"/></svg>
+      <span class="badge" :class="r.tone" x-show="r.count" x-text="r.count"></span>
+      <span class="lbl" x-text="r.short || r.label"></span><span class="key" x-text="r.key"></span>
+    </button>
+  </template>
+</nav>
+
+<!-- ================= SUMMON RING ================= -->
+<div class="ring" x-show="ring.open" x-cloak :style="'left:' + ring.x + 'px;top:' + ring.y + 'px'" role="menu" aria-label="Rooms">
+  <svg viewBox="0 0 260 260">
+    <circle cx="130" cy="130" r="127" class="ring-orbit"/>
+    <!-- One segment per room, drawn as a string: Alpine cannot loop a template inside SVG. -->
+    <g x-html="ringSvg()"></g>
+    <circle cx="130" cy="130" r="44" class="ring-hub"/>
+    <text x="130" y="127" text-anchor="middle" class="ring-hub-t" x-text="ring.hi >= 0 ? 'RELEASE' : 'SLIDE'"></text>
+    <text x="130" y="141" text-anchor="middle" class="ring-hub-s" x-text="ring.hi >= 0 ? 'TO OPEN' : 'TO A ROOM'"></text>
+  </svg>
+</div>
+
+<div data-slot="overlays"></div>
+
+</body>
+</html>

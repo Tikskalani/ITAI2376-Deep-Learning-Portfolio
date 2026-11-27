@@ -1,0 +1,233 @@
+<section class="room" data-room="career" x-show="room === 'career'" x-cloak aria-label="Career">
+  <div class="room-head"><h1 class="room-title">Career</h1>
+    <div class="subnav" role="tablist" aria-label="Career">
+      <button role="tab" :aria-selected="String(sub.career === 'queue')" @click="goRoom('career', 'queue')">Queue <span class="badge hot" x-show="jobsDue()" x-text="jobsDue()"></span></button>
+      <button role="tab" :aria-selected="String(sub.career === 'pipeline')" @click="goRoom('career', 'pipeline')">Pipeline <span class="badge acc" x-show="jobsOpen().length" x-text="jobsOpen().length"></span></button>
+      <button role="tab" :aria-selected="String(sub.career === 'discover')" @click="goRoom('career', 'discover')">Discover <span class="badge acc" x-show="(jobs.postings || []).length" x-text="(jobs.postings || []).length"></span></button>
+      <button role="tab" :aria-selected="String(sub.career === 'profile')" @click="goRoom('career', 'profile')">Profile <span class="badge" :class="{acc: answersDone() < answersRequired()}" x-show="answersLoaded" x-text="answersDone() + '/' + answersRequired()"></span></button>
+    </div>
+  </div>
+  <div class="sub" data-sub="queue" x-show="sub.career === 'queue'">
+      <!-- Paste a job link (core/jobs/paste.py): found, tracked, drafted, applied. -->
+      <form class="quick paste" @submit.prevent="pasteJob()">
+        <svg class="ic"><use href="#i-clip"/></svg>
+        <input type="url" x-model="paste.url" :disabled="paste.busy" enterkeyhint="go" autocomplete="off"
+               placeholder="Paste a job link: LinkedIn, Greenhouse, Lever, Ashby, Workable or a company careers page" aria-label="Job link" />
+        <button class="btn sm primary" type="submit" :disabled="paste.busy || !paste.url.trim()" x-text="paste.busy ? 'Reading…' : (paste.apply ? 'Apply' : 'Track')"></button>
+      </form>
+      <div class="quick-hint paste-hint" aria-live="polite">
+        <label><input type="checkbox" x-model="paste.apply" /> Apply as soon as the resume and cover note are ready</label>
+        <template x-if="paste.ask"><span class="paste-ask">
+          <input type="text" x-model="paste.company" placeholder="Company" aria-label="Company" />
+          <input type="text" x-model="paste.title" placeholder="Role" aria-label="Role" /></span></template>
+        <template x-if="paste.err"><span class="status-txt err" x-text="paste.err"></span></template>
+        <template x-if="paste.done"><span class="status-txt" x-text="paste.done"></span></template>
+      </div>
+      <div class="card" id="queue" style="margin-top:16px">
+        <div class="card-h"><svg class="ic"><use href="#i-bolt"/></svg><h2>Ready to apply</h2>
+          <span class="badge" :class="{acc: queueReady().length}" x-text="queueReady().length"></span><span class="grow"></span>
+          <span class="faint" style="font-size:var(--fs-2)" x-text="queue.queued_today + ' of ' + queue.daily_cap + ' today · needs ' + queue.min_score + '+' + (queue.best_score != null ? ', best this week ' + queue.best_score : '') + (queueOldest() ? ' · oldest from ' + queueOldest() : '')"></span>
+          <span class="tag amber" x-show="queue.dry_run" title="Dry run: Atlas fills each form and screenshots it, but never presses submit. Turn it off in config/jobs.yaml (submit.dry_run).">Dry run</span>
+          <button class="btn sm primary" x-show="queueReady().length > 1" :disabled="queueBusy" @click="queueApplyAll()" x-text="'Apply all (' + queueReady().length + ')'"></button>
+          <button class="btn sm" x-show="!queueWorking() && queue.queued_today < queue.daily_cap" :disabled="queueBusy" @click="queueBuild()">Find roles now</button></div>
+        <div class="card-b">
+          <template x-if="queueErr"><div class="status-txt err" role="alert" x-text="queueErr"></div></template>
+          <template x-if="queueWorking()"><div class="status-txt" role="status">Checking roles are still open and drafting resumes and cover notes… a minute or two per role.</div></template>
+          <template x-if="queueLoaded && !queue.items.length && !queueWorking()">
+            <div class="empty"><span class="ei"><svg class="ic"><use href="#i-bolt"/></svg></span><div><b>Nothing queued yet.</b>Every morning at 7:00 Atlas picks up to <span x-text="queue.daily_cap"></span> strong roles that are still open, and drafts a one-page resume and a cover note for each. Fill in your application answers below first.</div></div>
+          </template>
+          <template x-for="q in queue.items" :key="q.id">
+            <div class="qitem" :class="{done: q.status === 'skipped' || q.status === 'closed'}">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="ttl grow"><b x-text="q.title"></b> <span x-text="'at ' + q.company"></span></span>
+                <span class="tag" x-show="q.score != null" :class="q.score >= 90 ? 'green' : 'acc'" x-text="q.score" title="Fit score"></span>
+                <span class="tag" :class="queueTone(q.status)" x-text="queueLabel(q.status)"></span></div>
+              <div class="row-meta"><span x-text="q.location || (q.remote ? 'Remote' : '')"></span>
+                <template x-if="q.salary_min && q.salary_max"><span><span class="sep"></span><span x-text="'$' + Math.round(q.salary_min / 1000) + 'k–$' + Math.round(q.salary_max / 1000) + 'k'"></span></span></template>
+                <template x-if="q.url"><span><span class="sep"></span><a :href="q.url" target="_blank" rel="noopener">posting</a></span></template></div>
+              <div class="why" x-show="q.reason" x-text="q.reason"></div>
+              <template x-for="f in (q.flags || [])" :key="f"><div class="flag"><svg class="ic sm" aria-hidden="true"><use href="#i-alert"/></svg><span x-text="f"></span></div></template>
+              <div class="changes" x-show="q.changes" x-text="q.changes"></div>
+              <div class="changes" x-show="(q.from_your_answer || []).length" x-text="'From your answer: ' + (q.from_your_answer || []).join(', ')"></div>
+              <template x-if="q.error && !(q.submission && q.submission.status === 'blocked')"><div class="err" x-text="q.error"></div></template>
+              <template x-if="q.status === 'approved' && !q.submission"><div class="flag" style="color:var(--t2)" x-text="queue.submitting ? 'Approved. Filling the form now…' : 'Approved. Atlas fills it on its next run (every 20 minutes).'"></div></template>
+              <template x-if="q.submission"><div class="flag" style="color:var(--t2)">
+                <span><b x-text="subLabel(q.submission.status)"></b><span x-show="q.submission.reason" x-text="': ' + q.submission.reason"></span>
+                  <template x-if="(q.submission.screenshots || []).length"><span> · <button class="link" @click="openShots(q)" x-text="(q.submission.screenshots.length === 1 ? 'See the screenshot' : 'See the ' + q.submission.screenshots.length + ' screenshots')"></button></span></template></span></div></template>
+              <div class="actions">
+                <template x-if="q._busy"><span class="status-txt" x-text="q._busy"></span></template>
+                <template x-if="!q._busy"><span class="actions" style="margin:0">
+                  <button class="btn sm primary" x-show="q.status === 'ready'" @click="queueDecide(q, 'apply')">Apply</button>
+                  <button class="btn sm" x-show="q.status === 'needs_attention'" @click="queueRedraft(q)">Draft again</button>
+                  <button class="btn sm" x-show="q.status === 'approved' && q.submission && q.submission.can_retry !== false && ['needs_click', 'needs_answer', 'dry_run'].includes(q.submission.status)" :disabled="queue.submitting" @click="queueSubmit(q)" x-text="q.submission && q.submission.status === 'dry_run' ? 'Fill again' : 'Try again'"></button>
+                  <a class="btn sm primary" x-show="q.submission && q.submission.can_retry === false && q.url" :href="q.url" target="_blank" rel="noopener">Open posting</a>
+                  <a class="btn sm" x-show="q.has_resume" :href="'/api/jobs/applications/' + q.application_id + '/resume.pdf'" target="_blank" rel="noopener">Resume PDF</a>
+                  <button class="btn sm ghost" x-show="q.cover" @click="q._cover = !q._cover" x-text="q._cover ? 'Hide cover note' : 'Cover note'"></button>
+                  <button class="btn sm ghost" x-show="q.draft_episode_id" @click="openTrace(q.draft_episode_id)" title="Open the run that wrote these">Why these words?</button>
+                  <button class="btn sm ghost" x-show="['ready', 'needs_attention', 'drafting'].includes(q.status)" @click="queueDecide(q, 'skip')">Skip</button>
+                </span></template>
+              </div>
+              <template x-if="q._err"><div class="status-txt err" x-text="q._err"></div></template>
+              <template x-if="q._cover && q.cover"><div class="draft"><pre class="block" x-text="q.cover"></pre><button class="btn sm" @click="copyText(q.cover, q)">Copy</button></div></template>
+            </div>
+          </template>
+        </div>
+      </div>
+  </div>
+  <div class="sub" data-sub="pipeline" x-show="sub.career === 'pipeline'">
+      <div class="stats" style="margin-top:16px">
+        <template x-for="st in ['applied', 'screening', 'interview', 'offer']" :key="st">
+          <div class="stat"><div class="lbl" x-text="cap(st)"></div><div class="val" x-text="(jobs.funnel || {})[st] || 0"></div>
+            <div class="hint" x-text="st === 'applied' ? ((jobs.funnel || {}).rejected || 0) + ' closed with a no' : (st === 'offer' ? 'the goal' : ' ')"></div></div>
+        </template>
+      </div>
+        <div class="card" id="applications">
+          <div class="card-h"><svg class="ic"><use href="#i-cap"/></svg><h2>Applications</h2><span class="badge" x-text="jobsOpen().length"></span><span class="grow"></span>
+            <button class="link" @click="jobForm.open = !jobForm.open" x-text="jobForm.open ? 'Close' : 'Add'"></button></div>
+          <div class="card-b">
+            <form class="jobform" x-show="jobForm.open" x-cloak @submit.prevent="addJob()">
+              <input x-model="jobForm.company" placeholder="Company" aria-label="Company" required>
+              <input x-model="jobForm.role" placeholder="Role" aria-label="Role" required>
+              <input x-model="jobForm.url" placeholder="Posting link (optional)" aria-label="Posting link">
+              <div class="actions"><button class="btn primary sm" type="submit" :disabled="jobForm.busy">I applied</button>
+                <button class="btn sm" type="button" :disabled="jobForm.busy" @click="addJob('interested')">Just interested</button>
+                <span class="status-txt err" x-text="jobForm.err"></span></div>
+            </form>
+            <template x-if="jobsErr"><div class="empty" role="alert"><span class="ei"><svg class="ic"><use href="#i-alert"/></svg></span><div><b>Jobs did not load.</b><span x-text="jobsErr"></span></div></div></template>
+            <template x-if="!jobsErr && jobsLoaded && jobsOpen().length === 0"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-cap"/></svg></span><div><b>No open applications.</b>Confirmations in Gmail land here on their own once Gmail is connected.</div></div></template>
+            <template x-for="a in jobsOpen()" :key="a.id">
+              <div class="jobrow">
+                <div style="display:flex;align-items:center;gap:8px"><span class="ttl grow"><b x-text="a.company"></b> <span x-text="a.role"></span></span>
+                  <span class="tag" :class="jobTone(a.status)" x-text="cap(a.status)"></span></div>
+                <div class="row-meta"><span x-text="a.applied_at ? 'applied ' + dayAgo(a.applied_at) : 'not applied yet'"></span>
+                  <template x-if="a.last_contact_at"><span><span class="sep"></span><span x-text="'last word ' + ago(a.last_contact_at)"></span></span></template>
+                  <template x-if="a.url"><span><span class="sep"></span><a :href="a.url" target="_blank" rel="noopener">posting</a></span></template></div>
+                <div class="row-meta" x-show="a.next_action" style="color:var(--amber)" x-text="nextAction(a)"></div>
+                <div class="actions">
+                  <template x-if="a._busy"><span class="status-txt" x-text="a._busy"></span></template>
+                  <template x-if="!a._busy"><span class="actions" style="margin:0">
+                    <select class="btn sm" aria-label="Status" @change="moveJob(a, $event.target.value); $event.target.value = ''">
+                      <option value="">Move to…</option>
+                      <template x-for="st in ['applied', 'screening', 'interview', 'offer', 'rejected', 'withdrawn']" :key="st"><option :value="st" x-text="cap(st)"></option></template>
+                    </select>
+                    <button class="btn sm" @click="draftJob(a, a.status === 'interview' ? 'prep' : (a.next_action ? 'followup' : 'cover'))" x-text="a.status === 'interview' ? 'Prep me' : (a.next_action ? 'Draft follow-up' : 'Draft cover note')"></button>
+                    <button class="btn sm ghost" @click="openJob(a)" x-text="a._open ? 'Hide' : 'Details'"></button>
+                  </span></template>
+                </div>
+                <template x-if="a._err"><div class="status-txt err" x-text="a._err"></div></template>
+                <template x-if="a._open && a._detail">
+                  <div class="draft">
+                    <template x-for="[k, m] in Object.entries(a._detail.materials || {})" :key="k">
+                      <details class="payload" open><summary><svg class="ic sm"><use href="#i-chev"/></svg><span x-text="({cover: 'Cover note', resume: 'Tailored resume', followup: 'Follow-up', prep: 'Interview prep', referral: 'Referral ask', notes: 'Notes'}[k] || k) + ' · ' + ago(m.at)"></span></summary>
+                        <pre class="block" x-text="m.text"></pre>
+                        <button class="btn sm" @click="copyText(m.text, a)">Copy</button>
+                        <template x-if="k === 'resume'"><a class="btn sm primary" :href="'/api/jobs/applications/' + a.id + '/resume.pdf'" target="_blank" rel="noopener">Open PDF</a></template></details>
+                    </template>
+                    <template x-if="!Object.keys(a._detail.materials || {}).length"><div class="status-txt">No drafts yet.</div></template>
+                    <div class="row-meta" style="margin-top:8px">History</div>
+                    <template x-for="e in (a._detail.events || []).slice(0, 8)" :key="e.at + e.kind"><div class="row-meta"><span x-text="ago(e.at)"></span><span class="sep"></span><span x-text="e.kind"></span><span class="sep"></span><span x-text="(e.detail || '').slice(0, 140)"></span></div></template>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </div>
+  </div>
+  <div class="sub" data-sub="discover" x-show="sub.career === 'discover'">
+        <div class="card" id="roles">
+          <div class="card-h"><svg class="ic"><use href="#i-bolt"/></svg><h2>Roles worth a look</h2><span class="badge" :class="{acc: (jobs.postings || []).length}" x-text="(jobs.postings || []).length"></span><span class="grow"></span><span class="faint" style="font-size:var(--fs-2)">Found nightly, scored for you</span></div>
+          <div class="card-b">
+            <template x-if="jobsLoaded && !(jobs.postings || []).length"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-bolt"/></svg></span><div><b>Nothing scored yet.</b>Discovery runs at 05:15 over the boards in config/jobs.yaml; run python -m scripts.jobs --discover to start now.</div></div></template>
+            <template x-for="p in (jobs.postings || [])" :key="p.id">
+              <div class="jobrow">
+                <div style="display:flex;align-items:center;gap:8px"><span class="ttl grow"><b x-text="p.title"></b> <span x-text="'at ' + p.company"></span></span>
+                  <span class="tag" :class="p.score >= 80 ? 'green' : (p.score >= 65 ? 'acc' : '')" x-text="p.score"></span></div>
+                <div class="row-meta"><span x-text="(p.locations && p.locations.length > 1) ? p.locations.join(' · ') : (p.location || (p.remote ? 'Remote' : ''))"></span>
+                  <template x-if="p.salary_min && p.salary_max"><span><span class="sep"></span><span x-text="'$' + Math.round(p.salary_min / 1000) + 'k–$' + Math.round(p.salary_max / 1000) + 'k'"></span></span></template>
+                  <span class="sep"></span><span x-text="'found ' + ago(p.first_seen_at)"></span></div>
+                <div class="txt" style="font-size:var(--fs-3);margin-top:4px" x-text="p.reason"></div>
+                <div class="actions">
+                  <template x-if="p._busy"><span class="status-txt" x-text="p._busy"></span></template>
+                  <template x-if="!p._busy"><span class="actions" style="margin:0">
+                    <a class="btn sm" :href="p.url" target="_blank" rel="noopener">Open</a>
+                    <button class="btn sm primary" @click="trackPosting(p, 'interested')">Track</button>
+                    <button class="btn sm" @click="trackPosting(p, 'applied')">I applied</button>
+                    <button class="btn sm ghost" @click="dismissPosting(p)">Not for me</button>
+                  </span></template>
+                </div>
+                <template x-if="p._err"><div class="status-txt err" x-text="p._err"></div></template>
+              </div>
+            </template>
+          </div>
+        </div>
+  </div>
+  <div class="sub" data-sub="profile" x-show="sub.career === 'profile'">
+      <div class="card" id="answers" style="margin-top:16px">
+        <div class="card-h"><svg class="ic"><use href="#i-doc"/></svg><h2>Your application answers</h2>
+          <span class="badge" :class="{acc: answersDone() === answersRequired()}" x-text="answersDone() + ' of ' + answersRequired()"></span>
+          <span class="grow"></span><span class="faint" style="font-size:var(--fs-2)">Given once, used on every form. Kept on this laptop only.</span></div>
+        <div class="card-b">
+          <template x-if="answersErr"><div class="empty" role="alert"><span class="ei"><svg class="ic"><use href="#i-alert"/></svg></span><div><b>Answers did not load.</b><span x-text="answersErr"></span></div></div></template>
+          <template x-if="!answersErr && answersLoaded">
+            <div>
+              <div class="meter" role="progressbar" aria-label="Required answers filled" :aria-valuenow="answersDone()" aria-valuemin="0" :aria-valuemax="answersRequired()">
+                <i :style="'width:' + (answersRequired() ? Math.round(100 * answersDone() / answersRequired()) : 100) + '%'"></i></div>
+              <template x-if="(answers.pending || []).length">
+                <div class="answers" style="margin-bottom:16px">
+                  <h3 x-text="(answers.pending.length === 1 ? 'One question' : answers.pending.length + ' questions') + ' an application is waiting on'"></h3>
+                  <template x-for="p in answers.pending" :key="p.key">
+                    <div class="ans wide pending">
+                      <label :for="'ans-' + p.key"><span x-text="p.question"></span></label>
+                      <div style="display:flex;gap:8px">
+                        <input :id="'ans-' + p.key" x-model="p._draft" placeholder="Your answer" @keydown.enter.prevent="saveAnswer(p, p._draft)">
+                        <button class="btn sm primary" :disabled="p._busy || !(p._draft || '').trim()" @click="saveAnswer(p, p._draft)">Save</button>
+                        <button class="btn sm ghost" :disabled="p._busy" @click="forgetAnswer(p)" title="Not a real question; drop it">Drop</button>
+                      </div>
+                      <div class="note" :class="{err: p._err}" x-text="p._err || (p.context && p.context.company ? 'Asked by ' + p.context.company : '')"></div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+              <div class="answers">
+                <template x-for="(a, i) in (answers.standard || [])" :key="a.key">
+                  <div style="display:contents">
+                    <template x-if="i === 0 || a.group !== answers.standard[i - 1].group"><h3 x-text="a.group"></h3></template>
+                    <div class="ans">
+                      <label :for="'ans-' + a.key"><span x-text="a.label"></span><span class="req" x-show="a.required" aria-hidden="true">*</span></label>
+                      <template x-if="a.kind === 'choice'">
+                        <select :id="'ans-' + a.key" :aria-invalid="!!a._err" :aria-required="a.required" :value="a.answer || ''" @change="saveAnswer(a, $event.target.value)">
+                          <option value="">Choose…</option>
+                          <template x-for="c in a.choices" :key="c"><option :value="c" x-text="c" :selected="c === a.answer"></option></template>
+                        </select>
+                      </template>
+                      <template x-if="a.kind !== 'choice'">
+                        <input :id="'ans-' + a.key" :type="{email: 'email', phone: 'tel', url: 'url'}[a.kind] || 'text'" :autocomplete="{full_name: 'name', email: 'email', phone: 'tel', location: 'address-level2'}[a.key] || 'off'"
+                          :placeholder="a.placeholder" :value="a.answer || ''" :aria-invalid="!!a._err" :aria-required="a.required"
+                          @change="saveAnswer(a, $event.target.value)">
+                      </template>
+                      <div class="note" :class="{err: a._err, ok: a._ok}" x-text="a._err || (a._ok ? 'Saved' : a.help)"></div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+              <template x-if="(answers.learned || []).length">
+                <details class="payload" style="margin-top:14px"><summary><svg class="ic sm"><use href="#i-chev"/></svg><span x-text="answers.learned.length + ' answers learned from forms'"></span></summary>
+                  <div class="answers" style="margin-top:10px">
+                    <template x-for="l in answers.learned" :key="l.key">
+                      <div class="ans wide">
+                        <label :for="'ans-' + l.key" x-text="l.question"></label>
+                        <div style="display:flex;gap:8px">
+                          <input :id="'ans-' + l.key" :value="l.answer" @change="saveAnswer(l, $event.target.value)">
+                          <button class="btn sm ghost" :disabled="l._busy" @click="forgetAnswer(l)">Forget</button>
+                        </div>
+                        <div class="note" :class="{err: l._err, ok: l._ok}" x-text="l._err || (l._ok ? 'Saved' : 'Asked ' + l.asked_count + (l.asked_count === 1 ? ' time' : ' times'))"></div>
+                      </div>
+                    </template>
+                  </div>
+                </details>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+  </div>
+</section>

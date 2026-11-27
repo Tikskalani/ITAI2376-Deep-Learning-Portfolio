@@ -1,0 +1,64 @@
+/* Atlas design tokens. Colors and fonts follow the Neural Core design (2026-10-22, the Today room,
+   core.css); the layout tokens are still the JARVIS HUD's (docs/superpowers/specs/2026-10-15-jarvis-hud-design.md).
+   Dark only. Every glow means something: blue is live, working or done;
+   amber needs your yes; red failed or blocked. Nothing glows for decoration. */
+:root {
+  --bg: #04060A;
+  --bg-2: #070B13;
+  --glass: rgba(7, 11, 19, 0.66);
+  --glass-2: rgba(10, 15, 26, 0.82);
+  --h: #7FB2FF;
+  --h-hi: #D8F0FF;
+  --h-dim: color-mix(in srgb, var(--h) 32%, transparent);
+  --h-tint: rgba(127, 178, 255, 0.10);
+  --h-ink: #04101F;
+  --h2: #FFB020;
+  --h2-tint: rgba(255, 176, 32, 0.12);
+  --h2-ink: #1B1100;
+  --bad: #FF5A6A;
+  --bad-tint: rgba(255, 90, 106, 0.12);
+  --t1: #EAF1FF;
+  --t2: #C0CCE4;
+  --t3: #8A98B4;
+  --t4: #5F6B84;
+  --line: rgba(150, 190, 255, 0.14);
+  --line-2: rgba(150, 190, 255, 0.22);
+  --line-3: rgba(150, 190, 255, 0.36);
+
+  --hud: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --ui: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Martian Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --cut: 14px;
+  --fast: 140ms cubic-bezier(0.2, 0, 0, 1);
+  --base: 220ms cubic-bezier(0.2, 0, 0, 1);
+  --slow: 320ms cubic-bezier(0.2, 0, 0, 1);
+  --room: 260ms cubic-bezier(0.2, 0, 0, 1);
+  --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+
+  /* The names the ported room markup and the base sheet use, mapped onto the HUD. */
+  --card: var(--glass); --card-2: var(--glass-2); --raised: rgba(127, 178, 255, 0.07);
+  --hover: rgba(127, 178, 255, 0.06); --press: rgba(127, 178, 255, 0.11);
+  --accent: var(--h); --accent-hi: var(--h-hi); --accent-ink: var(--h-ink);
+  --accent-tint: var(--h-tint); --accent-line: rgba(127, 178, 255, 0.40);
+  --amber: var(--h2); --amber-tint: var(--h2-tint);
+  --rose: var(--bad); --rose-tint: var(--bad-tint);
+  --green: #5CF2B0; --green-tint: rgba(92, 242, 176, 0.12);
+  --violet: #9DB4FF; --violet-tint: rgba(157, 180, 255, 0.10);
+  --sky: var(--h); --sky-tint: var(--h-tint);
+  --card-sheen: linear-gradient(180deg, rgba(127, 178, 255, 0.05), rgba(127, 178, 255, 0) 38%);
+  --shadow-card: inset 0 1px 0 rgba(127, 178, 255, 0.08);
+  --shadow-pop: 0 30px 80px -20px rgba(0, 0, 0, 0.9), 0 0 0 1px var(--line-2), 0 0 40px -12px rgba(127, 178, 255, 0.25);
+  --glow: rgba(127, 178, 255, 0.14);
+  --graph-link: rgba(127, 178, 255, 0.22); --graph-link-dim: rgba(127, 178, 255, 0.05);
+  /* Type (audit 2026-10-22, finding 20): four text sizes; 20px and up are display. */
+  --fs-1: 11px;    /* labels, tags, mono captions */
+  --fs-2: 12.5px;  /* meta lines, help, secondary text */
+  --fs-3: 14px;    /* body, rows, buttons */
+  --fs-4: 18px;    /* card titles, emphasis */
+  /* Breakpoints (finding 21): @media cannot read a custom property, so these
+     document the only three widths a query may use (a test holds them):
+     sm 640px phone, md 900px tablet and the phone dock, lg 1180px laptop. */
+  --bp-sm: 640px; --bp-md: 900px; --bp-lg: 1180px;
+  color-scheme: dark;
+}

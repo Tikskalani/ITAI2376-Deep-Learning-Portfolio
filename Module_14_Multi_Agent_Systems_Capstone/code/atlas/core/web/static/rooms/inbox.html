@@ -1,0 +1,241 @@
+<section class="room" data-room="inbox" x-show="room === 'inbox'" x-cloak aria-label="Inbox">
+  <div class="room-head"><h1 class="room-title">Inbox</h1>
+    <div class="subnav" role="tablist" aria-label="Inbox">
+      <button role="tab" :aria-selected="String(sub.inbox === 'approvals')" @click="goRoom('inbox', 'approvals')">Approvals <span class="badge hot" x-show="needsYou()" x-text="needsYou()"></span></button>
+      <button role="tab" :aria-selected="String(sub.inbox === 'skills')" @click="goRoom('inbox', 'skills')">Skills to review <span class="badge acc" x-show="learnings.length + (outcomes ? outcomes.candidates.length : 0)" x-text="learnings.length + (outcomes ? outcomes.candidates.length : 0)"></span></button>
+      <button role="tab" :aria-selected="String(sub.inbox === 'signals')" @click="goRoom('inbox', 'signals')">Signals <span class="badge acc" x-show="signals.length" x-text="signals.length"></span></button>
+      <button role="tab" :aria-selected="String(sub.inbox === 'notifications')" @click="goRoom('inbox', 'notifications')">Notifications <span class="badge" :class="highAlerts() ? 'hot' : 'acc'" x-show="inbox.length" x-text="highAlerts() ? highAlerts() + ' alert' + (highAlerts() === 1 ? '' : 's') : inbox.length"></span></button>
+    </div>
+  </div>
+  <div class="sub" data-sub="approvals" x-show="sub.inbox === 'approvals'">
+<div class="card alert-card" x-show="highAlerts()" x-cloak>
+  <div class="card-h"><svg class="ic"><use href="#i-alert"/></svg><h2>Health alerts</h2><span class="badge hot" x-text="highAlerts()"></span><span class="grow"></span>
+    <button class="btn sm" @click="inboxAlertsOnly = true; goRoom('inbox', 'notifications')">Show the alerts</button></div>
+  <div class="card-b" style="padding-top:0"><div class="faint" style="font-size:var(--fs-2)">Unread high-priority notices: stalls, an unreachable database, a late brief. They count in the Inbox badge until they are read.</div></div>
+</div>
+<div class="grid-even">
+<div class="card" id="approvals">
+            <div class="card-h"><svg class="ic"><use href="#i-check"/></svg><h2>Approvals</h2><span class="badge" :class="{hot: approvals.length}" x-text="approvals.length"></span></div>
+            <div class="card-b">
+              <template x-if="approvalsErr"><div class="empty" role="alert"><span class="ei"><svg class="ic"><use href="#i-alert"/></svg></span><div><b>Approvals did not load.</b><span x-text="approvalsErr"></span></div></div></template>
+              <template x-if="!approvalsErr && approvalsLoaded && approvals.length === 0"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-check"/></svg></span><div><b>You're clear.</b>Nothing is waiting on your approval.</div></div></template>
+              <template x-for="a in approvals" :key="a.id">
+                <div class="approval"><div class="head">
+                  <span class="mono-av" :style="avStyle(a.agent_name)" x-text="monogram(a.agent_name)"></span>
+                  <div class="grow">
+                    <div class="row-title" x-text="a.action_summary"></div>
+                    <div class="row-meta"><span x-text="agentName(a.agent_name)"></span><span class="sep"></span><span x-text="ago(a.created_at)"></span><span class="sep"></span><span x-text="'expires ' + fmtWhen(a.expires_at)"></span></div>
+                    <details class="payload"><summary><svg class="ic sm"><use href="#i-chev"/></svg>Details</summary><pre class="block" x-text="pretty(a.action_payload)"></pre></details>
+                    <div class="actions">
+                      <template x-if="a._busy"><span class="status-txt">Deciding…</span></template>
+                      <template x-if="!a._busy"><span class="actions" style="margin:0">
+                        <button class="btn amber big" @click="decide(a, 'approved')">Approve</button>
+                        <button class="btn danger big" @click="decide(a, 'rejected')">Deny</button>
+                      </span></template>
+                    </div>
+                    <template x-if="a._err"><div class="status-txt err" x-text="a._err"></div></template>
+                  </div>
+                </div></div>
+              </template>
+            </div>
+          </div>
+<div class="card" id="decisions">
+            <div class="card-h"><svg class="ic"><use href="#i-scale"/></svg><h2>Decisions due</h2><span class="badge" x-text="decisions.length"></span></div>
+            <div class="card-b">
+              <template x-if="decisions.length === 0"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-scale"/></svg></span><div><b>Nothing to judge.</b>Logged decisions come back here when their review date arrives.</div></div></template>
+              <template x-for="d in decisions" :key="d.id">
+                <div class="row"><div class="row-title" x-text="d.summary"></div>
+                  <div class="row-meta"><span x-text="d.review_at ? 'Review ' + dueLabel(d.review_at).replace('due ', '') : 'No review date'"></span></div></div>
+              </template>
+            </div>
+          </div>
+</div>
+  </div>
+  <div class="sub" data-sub="skills" x-show="sub.inbox === 'skills'">
+<!-- Capabilities (core/capabilities/): a tutorial becomes a checked, versioned procedure. -->
+<div class="card" id="capabilities" x-show="!k2c.off">
+  <div class="card-h"><svg class="ic"><use href="#i-wave"/></svg><h2>Learn from a tutorial</h2>
+    <span class="badge" :class="{acc: capToReview().length}" x-text="capToReview().length"></span><span class="grow"></span>
+    <span class="faint" style="font-size:var(--fs-2)" x-text="'Up to $' + Number(k2c.cap_usd || 0.5).toFixed(2) + ' a video'"></span></div>
+  <div class="card-b" style="padding-top:0">
+    <form class="quick paste" @submit.prevent="shareCapability()">
+      <svg class="ic"><use href="#i-clip"/></svg>
+      <input type="url" x-model="k2c.url" :disabled="k2c.busy" autocomplete="off" aria-label="Tutorial link"
+             placeholder="Paste a YouTube video, reel or article: Atlas reads it, checks it, writes a procedure" />
+      <button class="btn sm primary" type="submit" :disabled="k2c.busy || !k2c.url.trim()" x-text="k2c.busy ? 'Sending…' : 'Learn'"></button>
+    </form>
+    <div class="quick-hint" aria-live="polite">
+      <template x-if="k2c.err"><span class="status-txt err" x-text="k2c.err"></span></template>
+      <template x-if="!k2c.err && k2c.msg"><span class="status-txt" x-text="k2c.msg"></span></template>
+      <template x-if="!k2c.err && !k2c.msg"><span>The video is processed on this laptop; selected frames and the transcript go to Claude to read. Nothing reaches an agent until you approve it.</span></template>
+    </div>
+    <template x-for="s in k2c.sources.slice(0, 8)" :key="s.id">
+      <div class="pi">
+        <span class="k" aria-hidden="true" :style="'background:' + capTone(s.status)"></span>
+        <div class="t"><span x-text="s.title || s.url"></span>
+          <span class="pr" x-text="capLine(s)"></span></div>
+        <button class="btn sm ghost" x-show="['failed', 'held_budget'].includes(s.status)" @click="retryCapability(s)" title="A new attempt; it is charged">Try again</button>
+      </div>
+    </template>
+    <template x-if="k2c.versions.length"><div style="margin-top:12px">
+      <div class="row-title">Procedures</div>
+      <template x-for="v in k2c.versions" :key="v.id">
+        <div class="pi">
+          <span class="tag" :class="{green: v.review === 'approved', soon: !v.review, urgent: v.review === 'withdrawn'}"
+                x-text="v.review === 'approved' ? 'approved' : (v.review === 'withdrawn' ? 'withdrawn' : 'to review')"></span>
+          <div class="t"><span x-text="v.title + ' (v' + v.version + ')'"></span>
+            <span class="pr" x-text="[capCheckLabel(v.check_status), 'not practically tested', v.complete ? '' : 'incomplete', v.uses ? 'used ' + v.uses + '×' : '', v.exported ? 'in Claude Code' : ''].filter(Boolean).join(' · ')"></span></div>
+          <button class="btn sm" @click="openCapability(v)" x-text="v.review ? 'Open' : 'Review'"></button>
+        </div>
+      </template>
+    </div></template>
+  </div>
+</div>
+<div class="grid-even">
+<div class="card" id="learnings">
+          <div class="card-h"><svg class="ic"><use href="#i-learn"/></svg><h2>To review</h2><span class="badge" :class="{acc: learnings.length}" x-text="learnings.length"></span><span class="grow"></span><span class="faint" style="font-size:var(--fs-2)">From the agents' own runs and what you share</span></div>
+          <div class="card-b">
+            <template x-if="learnings.length === 0"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-learn"/></svg></span><div><b>Nothing waiting.</b>Share a reel to Atlas, or let the nightly scan fill this.</div></div></template>
+            <template x-for="l in learnings" :key="l.id">
+              <div class="learn-item">
+                <div class="txt" x-text="l.learning"></div>
+                <div class="relev"><span x-text="(l.source_url || '').startsWith('atlas://run/') ? 'written by ' + agentName(l.creator || 'ceo') + ' from a run' : (l.creator || 'unknown')"></span><button class="link" x-show="(l.source_url || '').startsWith('atlas://run/')" @click="openTrace((l.source_url || '').slice(12))">Why?</button><span class="bar"><i :style="`width:${Math.round((l.relevance||0)*100)}%`"></i></span><span class="num" x-text="Math.round((l.relevance||0)*100) + '% fit'"></span></div>
+                <div class="actions" x-show="l.status !== 'drafted'">
+                  <template x-if="l._busy"><span class="status-txt" x-text="l._busy === 'drafting' ? 'Drafting a playbook…' : 'Working…'"></span></template>
+                  <template x-if="!l._busy"><span class="actions" style="margin:0">
+                    <button class="btn primary" @click="buildLearning(l)"><svg class="ic sm"><use href="#i-learn"/></svg>Build it</button>
+                    <button class="btn ghost" @click="skipLearning(l)">Skip</button>
+                  </span></template>
+                </div>
+                <template x-if="l._err"><div class="status-txt err" x-text="l._err"></div></template>
+                <template x-if="l.status === 'drafted' && l.draft">
+                  <div class="draft">
+                    <div class="hd"><span class="tag acc" x-text="({playbook: 'Playbook', procedure: 'Playbook + procedure', code_note: 'Code note'}[l.draft.kind] || 'Draft')"></span><span x-text="l.draft.title || ''"></span></div>
+                    <div class="row-meta" x-show="(l.draft.applies_to || []).length" x-text="'Applies to ' + (l.draft.applies_to || []).join(', ')"></div>
+                    <pre class="block" x-show="l.draft.playbook" x-text="l.draft.playbook"></pre>
+                    <details class="payload" x-show="l.draft.body"><summary><svg class="ic sm"><use href="#i-chev"/></svg>Full procedure</summary><pre class="block" x-text="l.draft.body"></pre></details>
+                    <div class="actions">
+                      <template x-if="l._busy"><span class="status-txt">Adopting…</span></template>
+                      <template x-if="!l._busy"><span class="actions" style="margin:0">
+                        <button class="btn primary" x-show="l.draft.kind !== 'code_note'" @click="adoptLearning(l)">Adopt into Atlas</button>
+                        <button class="btn danger" @click="skipLearning(l)">Discard</button>
+                      </span></template>
+                    </div>
+                    <template x-if="l.draft.kind === 'code_note'"><div class="status-txt">A code change. Implement it by hand; Adopt only writes behavior.</div></template>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </div>
+<div class="card" id="misses">
+          <div class="card-h"><svg class="ic"><use href="#i-thumb"/></svg><h2>Learning from outcomes</h2><span class="badge" :class="{hot: outcomes && outcomes.candidates.length}" x-text="outcomes ? outcomes.candidates.length : 0"></span><span class="grow"></span>
+            <span class="faint" style="font-size:var(--fs-2)" x-show="outcomes" x-text="outcomes ? outcomes.summary.this_week.good + ' good · ' + outcomes.summary.this_week.bad + ' bad this week' + (outcomes.summary.last_week.good + outcomes.summary.last_week.bad ? ' (last week ' + outcomes.summary.last_week.good + ' · ' + outcomes.summary.last_week.bad + ')' : '') : ''"></span></div>
+          <div class="card-b" style="padding-top:0">
+            <template x-if="!outcomes || !outcomes.candidates.length"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-check"/></svg></span><div><b>No misses waiting.</b>Every Rework tap, bad rating, rejection and "that was wrong" in chat lands on the run that caused it and proposes an eval case here. <code>python -m scripts.eval_candidates --export</code> writes them into the eval set.</div></div></template>
+            <template x-for="c in (outcomes ? outcomes.candidates : [])" :key="c.id">
+              <div class="nt">
+                <div class="ttl"><span class="mono-av" :style="avStyle(c.agent || 'ceo')" x-text="monogram(c.agent || 'ceo')"></span><b x-text="c.task || '(no task recorded)'"></b><span class="tag urgent" x-text="({tap: 'rated bad', night_review: 'rework', application: 'rejected', correction: 'corrected'})[c.kind] || c.kind"></span></div>
+                <div class="dod" x-show="c.note" x-text="'He said: ' + (c.note || '')"></div>
+                <details class="payload" x-show="c.result"><summary><svg class="ic sm"><use href="#i-chev"/></svg>What came out</summary><pre class="block" x-text="c.result"></pre></details>
+                <div class="row-meta"><span x-text="ago(c.created_at)"></span><span class="sep"></span><button class="link" x-show="c.episode_id" @click="openTrace(c.episode_id)">Why?</button><span class="grow"></span><button class="btn sm ghost" @click="dismissCandidate(c)">Dismiss</button></div>
+              </div>
+            </template>
+          </div>
+        </div>
+</div>
+  </div>
+  <div class="sub" data-sub="signals" x-show="sub.inbox === 'signals'">
+<div class="grid-even">
+<div class="card" id="today">
+            <div class="card-h"><svg class="ic"><use href="#i-bolt"/></svg><h2>Today</h2><span class="badge" x-text="signals.length"></span><span class="grow"></span>
+              <span class="faint" style="font-size:var(--fs-2)">Last 24 hours, triaged</span></div>
+            <div class="card-b tl">
+              <template x-if="signals.length === 0">
+                <div class="empty"><span class="ei"><svg class="ic"><use href="#i-clock"/></svg></span><div>
+                  <template x-if="notConnected(['google', 'canvas', 'github']).length"><span><b x-text="'Not connected: ' + notConnected(['google', 'canvas', 'github']).join(', ') + '.'"></b>Nothing can arrive from a source Atlas cannot read. <a class="link" href="#settings/connections">Connect it</a></span></template>
+                  <template x-if="!notConnected(['google', 'canvas', 'github']).length"><span><b>Quiet so far.</b>GitHub, Canvas, Gmail and Calendar land here as they arrive.</span></template></div></div>
+              </template>
+              <template x-for="s in signals" :key="s.id">
+                <div class="tl-item">
+                  <span class="src" :class="s.source"><svg class="ic sm"><use :href="'#i-' + sourceIcon(s.source)"/></svg></span>
+                  <div class="grow">
+                    <div class="row-title" x-text="s.triage_notes || s.subject"></div>
+                    <div class="row-meta">
+                      <span x-text="s.project_name || s.project_slug || 'Unlinked'"></span><span class="sep"></span>
+                      <span x-text="sourceLabel(s.source)"></span><span class="sep"></span><span x-text="ago(s.occurred_at)"></span>
+                      <template x-if="s.deadline"><span>· due <span x-text="s.deadline"></span></span></template>
+                      <template x-if="s.url"><a :href="s.url" target="_blank" rel="noopener">Open<svg class="ic sm"><use href="#i-ext"/></svg></a></template>
+                    </div>
+                  </div>
+                  <span class="tag" :class="urgencyTone(s.urgency)" x-text="urgencyLabel(s.urgency)"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+<div class="card" id="sources">
+  <div class="card-h"><svg class="ic"><use href="#i-bolt"/></svg><h2>Sources</h2><span class="grow"></span>
+    <a class="link" href="#settings/connections">Connections</a></div>
+  <div class="card-b" style="padding-top:0">
+    <div class="faint" style="font-size:var(--fs-2);margin-bottom:6px">Signals come only from what Atlas can read.</div>
+    <template x-for="src in [{k: 'google', n: 'Gmail and Calendar'}, {k: 'canvas', n: 'Canvas'}, {k: 'github', n: 'GitHub'}]" :key="src.k">
+      <div class="pi"><span class="k" aria-hidden="true" :style="'background:' + (connect && connect[src.k] && connect[src.k].ok === true ? 'var(--green)' : 'var(--h2)')"></span>
+        <div class="t"><span x-text="src.n"></span><span class="pr" x-text="!connect ? 'checking' : (connect[src.k] && connect[src.k].ok === true ? 'connected' : 'not connected')"></span></div></div>
+    </template>
+  </div>
+</div>
+</div>
+  </div>
+  <div class="sub" data-sub="notifications" x-show="sub.inbox === 'notifications'">
+<div class="card" id="inbox">
+            <div class="card-h"><svg class="ic"><use href="#i-inbox"/></svg><h2>Notifications</h2><span class="badge" x-text="inbox.length"></span><span class="grow"></span>
+              <span class="seg" role="group" aria-label="Show" x-show="inbox.length" style="display:inline-grid;grid-template-columns:repeat(2,auto)">
+                <button :aria-pressed="String(!inboxAlertsOnly)" @click="inboxAlertsOnly = false">All</button>
+                <button :aria-pressed="String(inboxAlertsOnly)" @click="inboxAlertsOnly = true" x-text="'Alerts' + (highAlerts() ? ' · ' + highAlerts() : '')"></button>
+              </span>
+              <button class="btn sm" x-show="inbox.length" @click="markAllRead()">Mark all read</button></div>
+            <div class="card-b">
+              <template x-if="inbox.length === 0"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-inbox"/></svg></span><div><b>Inbox zero.</b>Nothing unread.</div></div></template>
+              <template x-for="n in inboxShown()" :key="n.id">
+                <div class="row">
+                  <div style="display:flex;align-items:center;gap:8px"><span class="tag" :class="n.priority === 'high' ? 'soon' : 'violet'" x-text="kindLabel(n.kind)"></span><span class="grow"></span><span class="faint" style="font-size:var(--fs-2)" x-text="ago(n.created_at)"></span></div>
+                  <button class="row-title" style="margin-top:6px;display:block" @click="n._open = !n._open" :aria-expanded="String(!!n._open)" x-text="n.title"></button>
+                  <template x-if="n._open"><div class="brief-text" style="font-size:var(--fs-3)" x-text="n.body"></div></template>
+                  <template x-if="n.kind === 'decision_review' && n.data && n.data.decisions">
+                    <div>
+                      <template x-for="d in n.data.decisions" :key="d.id">
+                        <div class="actions">
+                          <span class="muted grow" style="font-size:var(--fs-2);min-width:160px" x-text="d.summary"></span>
+                          <template x-if="!d._done"><span class="actions" style="margin:0">
+                            <button class="btn sm ok" @click="reviewDecision(d, 'right')">Right</button>
+                            <button class="btn sm" @click="reviewDecision(d, 'mixed')">Mixed</button>
+                            <button class="btn sm danger" @click="reviewDecision(d, 'wrong')">Wrong</button>
+                          </span></template>
+                          <template x-if="d._done"><span class="status-txt" x-text="d._done"></span></template>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                  <template x-if="n.kind && n.kind.startsWith('brief/') && n.data && n.data.owes && n.data.owes.length">
+                    <div>
+                      <div class="faint" style="font-size:var(--fs-2);margin-top:6px">Promises you owe</div>
+                      <template x-for="o in n.data.owes" :key="o.key">
+                        <div class="actions">
+                          <span class="muted grow" style="font-size:var(--fs-2);min-width:160px" x-text="o.who + ': ' + o.text"></span>
+                          <template x-if="!o._done"><button class="btn sm ok" :disabled="o._busy" @click="closeOwed(o)">Done</button></template>
+                          <template x-if="o._done"><span class="status-txt" x-text="o._done"></span></template>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                  <div class="actions">
+                    <template x-if="n.kind === 'approval' && n.data && n.data.approval_id"><button class="btn sm primary" @click="openApproval(n.data.approval_id)">Open card</button></template>
+                    <template x-if="n.kind && n.kind.startsWith('brief/') && n.data && n.data.brief_id"><button class="btn sm" @click="openBrief(n.data.brief_id)">Read brief</button></template>
+                    <button class="btn sm ghost" @click="markRead(n)">Mark read</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+  </div>
+</section>

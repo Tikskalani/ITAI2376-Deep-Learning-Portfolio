@@ -1,0 +1,107 @@
+/* Atlas shell (Neural Core, 2026-10-22): the top bar, the rooms, the summon
+   ring and the phone tab bar. Same idiom as the Today room (core.css): deep
+   graphite, cool white, Hanken Grotesk for words, Martian Mono for labels,
+   glass panels with soft corners. Loaded after hud.css. */
+:root { --topbar: 60px; --dockh: 0px; }
+body { display: block; height: 100dvh; overflow: hidden; }
+
+/* ---------- Top bar ---------- */
+.topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 40; height: calc(var(--topbar) + var(--sat)); padding: var(--sat) 28px 0 40px;
+  display: flex; align-items: center; gap: 22px; color: var(--t2);
+  background: linear-gradient(180deg, rgba(4, 6, 10, 0.96), rgba(4, 6, 10, 0.72)); border-bottom: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.topbar .mark { display: flex; align-items: center; gap: 10px; color: var(--t1); font: 500 var(--fs-4) var(--ui); letter-spacing: 0.01em; }
+.topbar .mark svg { display: block; }
+.tb-nav { display: flex; gap: 4px; }
+.tb-nav button { font: 400 var(--fs-2) var(--mono); letter-spacing: 0.04em; color: var(--t3); padding: 6px 10px; border-radius: 6px; display: inline-flex; align-items: center; }
+.tb-nav button:hover { color: var(--t1); }
+.tb-nav button[aria-current="page"] { color: var(--t1); background: rgba(127, 178, 255, 0.12); }
+.tb-nav b { font-weight: 500; color: #1B1100; background: var(--h2); border-radius: 999px; padding: 0 6px; margin-left: 6px; font-size: var(--fs-1); line-height: 16px; }
+.tb-nav b.acc { background: transparent; color: var(--h); border: 1px solid var(--h-dim); line-height: 14px; }
+.tb-status { display: inline-flex; align-items: center; gap: 8px; font: 300 var(--fs-1) var(--mono); letter-spacing: 0.08em; color: var(--t3); white-space: nowrap; }
+.tb-status i { width: 6px; height: 6px; border-radius: 6px; background: var(--green); box-shadow: 0 0 8px var(--green); }
+.tb-status.lost { color: var(--h2); }
+.tb-status.lost i { background: var(--h2); box-shadow: 0 0 8px var(--h2); animation: nc-pl 1.8s ease-in-out infinite; }
+.tb-btn { height: 30px; padding: 0 10px; display: inline-flex; align-items: center; gap: 7px; color: var(--t3);
+  border: 1px solid var(--line); border-radius: 8px; font: 400 var(--fs-1) var(--mono); letter-spacing: 0.06em; transition: color var(--fast), border-color var(--fast); }
+.tb-btn:hover { color: var(--t1); border-color: var(--line-3); }
+.tb-btn[aria-pressed="true"] { color: var(--t1); background: rgba(127, 178, 255, 0.12); border-color: var(--line-2); }
+.tb-btn .kbd { border: 0; background: transparent; padding: 0; color: inherit; font-size: var(--fs-1); }
+.tb-demo { padding: 4px 9px; border: 1px solid rgba(255, 176, 32, 0.55); border-radius: 6px; color: var(--h2); font: 400 var(--fs-1) var(--mono); letter-spacing: 0.12em; background: var(--h2-tint); }
+
+/* ---------- Rooms ---------- */
+main.rooms { position: fixed; inset: calc(var(--topbar) + var(--sat)) 0 0 0; height: auto; overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain; padding-bottom: calc(var(--dockh) + 40px + var(--sab)); }
+.room { display: block; max-width: 1240px; margin: 0 auto; padding: 28px 40px 0; animation: room-in var(--room) both; }
+@keyframes room-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.room-head { display: flex; align-items: baseline; gap: 28px; flex-wrap: wrap; margin: 0 0 22px; }
+.room-title { margin: 0; font: 300 36px/1.05 var(--ui); letter-spacing: -0.02em; color: var(--t1); }
+.subnav { display: flex; gap: 4px; flex-wrap: wrap; }
+.subnav button { position: relative; height: 30px; padding: 0 10px; display: inline-flex; align-items: center; gap: 8px; border-radius: 6px;
+  font: 400 var(--fs-2) var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--t3); transition: color var(--fast), background var(--fast); }
+.subnav button:hover { color: var(--t1); }
+.subnav button[aria-selected="true"] { color: var(--t1); background: rgba(127, 178, 255, 0.12); }
+.subnav .badge { height: 16px; min-width: 16px; font-size: var(--fs-1); }
+.sub > .card, .sub > .grid-2, .sub > .grid-even, .sub > .stats, .sub > .roster, .sub > .tiles, .sub > div > .card { margin-bottom: 16px; }
+.sub > .card + .card { margin-top: 0; }
+
+/* Chat: the channel fills the room. */
+.v-chat { display: flex; flex-direction: column; height: calc(100dvh - var(--topbar) - var(--sat) - 90px - var(--dockh)); }
+body[data-room="comms"] main.rooms { overflow: hidden; }
+body[data-room="comms"] .room[data-room="comms"] { height: 100%; display: flex; flex-direction: column; }
+body[data-room="comms"] .sub[data-sub="briefings"], body[data-room="comms"] .sub[data-sub="recordings"] { overflow-y: auto; min-height: 0; flex: 1; }
+
+/* ---------- The phone tab bar (the top bar's nav, at 900px and below) ---------- */
+.dock { display: none; }
+
+/* ---------- Summon ring (hold anywhere) ---------- */
+.ring { position: fixed; z-index: 80; width: 260px; height: 260px; transform: translate(-50%, -50%); pointer-events: none;
+  animation: ring-in 160ms cubic-bezier(0.2, 0, 0, 1) both; }
+.ring svg { width: 100%; height: 100%; overflow: visible; }
+@keyframes ring-in { from { opacity: 0; transform: translate(-50%, -50%) scale(0.7); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+.ring-orbit { fill: none; stroke: var(--line-2); }
+.ring-seg { fill: rgba(7, 11, 19, 0.97); stroke: var(--line-2); transition: fill var(--fast); }
+.ring .hi .ring-seg { fill: rgba(127, 178, 255, 0.22); stroke: var(--h); }
+.ring-lbl { font-family: var(--mono); font-size: var(--fs-1); font-weight: 400; letter-spacing: 0.08em; fill: var(--t2); }
+.ring .hi .ring-lbl { fill: var(--t1); }
+.ring-hub { fill: var(--bg); stroke: var(--line-3); stroke-width: 1; }
+.ring-hub-t { font-family: var(--mono); font-size: var(--fs-1); letter-spacing: 0.1em; fill: var(--h); }
+.ring-hub-s { font-family: var(--mono); font-size: var(--fs-1); letter-spacing: 0.1em; fill: var(--t3); }
+body.ringing { user-select: none; -webkit-user-select: none; }
+
+/* ---------- Laptop: eight room names need the width the status words had ---------- */
+@media (max-width: 1180px) {
+  .topbar { gap: 14px; padding-left: 24px; }
+  .tb-status span, .tb-btn .tb-label { display: none; }
+  .tb-nav button { padding: 6px 8px; }
+}
+
+/* ---------- Phone ---------- */
+@media (max-width: 900px) {
+  :root { --topbar: 52px; --dockh: 64px; }
+  .topbar { gap: 10px; padding: var(--sat) 12px 0 16px; }
+  .topbar .mark { font-size: var(--fs-4); }
+  .tb-nav, .tb-btn .tb-label, .tb-btn .kbd, .tb-status span { display: none; }
+  .room { padding: 16px 16px 0; }
+  .room-head { gap: 12px; margin-bottom: 14px; }
+  .room-title { font-size: 28px; }
+  .subnav { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; margin-right: -16px; }
+  .subnav::-webkit-scrollbar { display: none; }
+  .subnav button { flex: none; }
+  .dock { position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 0;
+    padding: 8px 4px calc(6px + var(--sab)); background: rgba(7, 11, 19, 0.9); border-top: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+  .dock .mod { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; color: var(--t3); }
+  .dock .mod .ic { width: 22px; height: 22px; stroke-width: 1.5; }
+  /* Eight rooms on a phone: labels in the UI face, not spaced caps, so each fits its slot. */
+  .dock .mod .lbl { font: 400 var(--fs-1) var(--ui); letter-spacing: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dock .mod .key { display: none; }
+  .dock .mod[aria-current="page"] { color: var(--h); }
+  .dock .mod .badge { position: absolute; top: -4px; right: calc(50% - 20px); min-width: 16px; height: 15px; padding: 0 4px; font-size: var(--fs-1); }
+  .dock .mod .badge.hot { background: var(--h2); color: var(--h2-ink); }
+  .dock .mod .badge.acc { background: transparent; color: var(--h); border: 1px solid var(--h-dim); }
+  main.rooms { padding-bottom: calc(var(--dockh) + 20px + var(--sab)); }
+  .v-chat { height: calc(100dvh - var(--topbar) - var(--sat) - 70px - var(--dockh) - var(--sab) - 16px); }
+  .toast { bottom: calc(var(--dockh) + var(--sab) + 12px); }
+  .tb-demo { letter-spacing: 0.08em; padding: 3px 6px; }
+}

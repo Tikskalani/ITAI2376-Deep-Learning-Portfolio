@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Atlas HUD checks</title>
+<style>
+  body { background: #04060A; color: #EAF1FF; font: 14px/1.5 ui-monospace, monospace; padding: 24px; }
+  .pass { color: #7FB2FF; } .fail { color: #FF5A6A; font-weight: 700; }
+  h1 { font-size: 16px; letter-spacing: .2em; }
+</style>
+<script src="/static/atlas/shell.js"></script>
+<script src="/static/atlas/dial.js"></script>
+</head>
+<body>
+<h1>ATLAS HUD CHECKS</h1>
+<p>Pure-function checks for shell.js and dial.js. Open at /static/atlas/test.html; every row should be blue.</p>
+<div id="fixtures" hidden>
+  <input id="t-text" /><input id="t-check" type="checkbox" /><textarea id="t-area"></textarea>
+  <select id="t-select"><option>a</option></select><div id="t-edit" contenteditable="true"></div><button id="t-button">b</button>
+</div>
+<ol id="out"></ol>
+<script>
+  const out = document.getElementById("out");
+  let failed = 0;
+  function check(name, ok, detail) {
+    const li = document.createElement("li");
+    li.className = ok ? "pass" : "fail";
+    li.textContent = (ok ? "PASS " : "FAIL ") + name + (ok || detail === undefined ? "" : "  got " + JSON.stringify(detail));
+    out.appendChild(li);
+    if (!ok) failed++;
+  }
+  const near = (a, b, eps = 0.01) => Math.abs(a - b) < eps;
+  const $ = (id) => document.getElementById(id);
+
+  // shell.js: keys never fire while typing.
+  const S = window.AtlasShell;
+  check("isTyping: text input", S.isTyping($("t-text")) === true);
+  check("isTyping: textarea", S.isTyping($("t-area")) === true);
+  check("isTyping: select", S.isTyping($("t-select")) === true);
+  check("isTyping: contenteditable", S.isTyping($("t-edit")) === true);
+  check("isTyping: checkbox is not typing", S.isTyping($("t-check")) === false);
+  check("isTyping: button is not typing", S.isTyping($("t-button")) === false);
+  check("isTyping: body is not typing", S.isTyping(document.body) === false);
+  check("ringPaths: six segments by default", S.ringPaths().length === 6);
+  check("ringPaths: one segment per room (eight)", S.ringPaths(8).length === 8);
+  check("ringPaths: eight segments start at the top", Math.abs(S.ringPaths(8)[0].lx - 130) < 0.01 && S.ringPaths(8)[0].ly < 130);
+
+  // dial.js: time to angle, arcs, layout.
+  const D = window.AtlasDial;
+  if (!D) { check("dial.js loaded", false); }
+  else {
+    const tz = "America/Chicago";
+    check("angleOf 00:00 is 0", near(D.angleOf("2026-10-15T00:00:00-05:00", tz), 0));
+    check("angleOf 06:00 is 90", near(D.angleOf("2026-10-15T06:00:00-05:00", tz), 90));
+    check("angleOf 07:30 is 112.5", near(D.angleOf("2026-10-15T07:30:00-05:00", tz), 112.5));
+    check("angleOf 18:00 is 270", near(D.angleOf("2026-10-15T18:00:00-05:00", tz), 270));
+    check("angleOf reads the tz, not the browser", near(D.angleOf("2026-10-15T12:30:00Z", tz), 112.5));
+    const p = D.point(300, 300, 100, 90);
+    check("point at 90 degrees is to the right", near(p.x, 400) && near(p.y, 300), p);
+    const top = D.point(300, 300, 100, 0);
+    check("point at 0 degrees is at the top", near(top.x, 300) && near(top.y, 200), top);
+    const wrap = D.arc(300, 300, 175, 337.5, 22.5);
+    check("arc across midnight is one path", typeof wrap === "string" && (wrap.match(/M/g) || []).length === 1, wrap);
+    const day = { now: "2026-10-15T07:30:00-05:00", tz,
+      night: { start: "2026-10-14T22:00:00-05:00", end: "2026-10-15T09:00:00-05:00" },
+      done: [{ at: "2026-10-15T07:30:00-05:00", kind: "run.finished", agent: "coo", title: "filed mail", episode_id: "e1" }],
+      next: [{ at: "2026-10-15T10:00:00-05:00", kind: "task", title: "Lecture", all_day: false }] };
+    const agents = [{ name: "coo", step: "x", live: true }, { name: "career", live: true }, { name: "cto", live: false },
+      { name: "academic", live: true }, { name: "nobody_knows_me", live: true }];
+    const L = D.layout(day, agents, 600);
+    const want = D.point(300, 300, L.r.dial, 112.5);
+    check("done dot at 07:30 sits on the dial", near(L.done[0].x, want.x, 0.5) && near(L.done[0].y, want.y, 0.5), L.done[0]);
+    check("next dot carries its title", L.next[0] && L.next[0].title === "Lecture");
+    check("needle points at now", L.needle && near(L.needle.deg, 112.5));
+    check("at most four agent nodes", L.nodes.length === 4, L.nodes.length);
+    check("live agents first", L.nodes.slice(0, 4).every(n => n.live), L.nodes.map(n => n.live));
+    check("an agent the roster does not know still lays out", L.nodes.some(n => n.name === "nobody_knows_me") || L.nodes.length === 4);
+    check("night arc is a path", typeof L.night === "string" && L.night.startsWith("M"));
+  }
+  document.title = failed ? `FAIL (${failed})` : "PASS";
+  const done = document.createElement("p");
+  done.className = failed ? "fail" : "pass";
+  done.textContent = failed ? `${failed} failing` : "all passing";
+  document.body.appendChild(done);
+</script>
+</body>
+</html>

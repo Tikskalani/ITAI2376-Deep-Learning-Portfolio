@@ -1,0 +1,112 @@
+<section class="room" data-room="memory" x-show="room === 'memory'" x-cloak aria-label="Memory">
+  <div class="room-head"><h1 class="room-title">Memory</h1>
+    <div class="subnav" role="tablist" aria-label="Memory">
+      <button role="tab" :aria-selected="String(sub.memory === 'facts')" @click="goRoom('memory', 'facts')">Facts <span class="badge" x-show="memory" x-text="memory ? memory.total : 0"></span></button>
+      <button role="tab" :aria-selected="String(sub.memory === 'people')" @click="goRoom('memory', 'people')">People <span class="badge" x-show="memory && memory.people.length" x-text="memory ? memory.people.length : 0"></span></button>
+      <button role="tab" :aria-selected="String(sub.memory === 'projects')" @click="goRoom('memory', 'projects')">Projects <span class="badge" x-show="projects.length" x-text="projects.length"></span></button>
+      <button role="tab" :aria-selected="String(sub.memory === 'map')" @click="goRoom('memory', 'map')">Map</button>
+    </div>
+  </div>
+  <div class="sub" data-sub="facts" x-show="sub.memory === 'facts'">
+<div class="card" id="memory" style="margin-top:16px">
+        <div class="card-h"><svg class="ic"><use href="#i-book"/></svg><h2>What Atlas believes about you</h2><span class="badge" x-text="memory ? memory.total : 0"></span><span class="grow"></span>
+          <input type="search" placeholder="Search memory" x-model="memoryQ" @input.debounce.250ms="fetchMemory()" aria-label="Search memory"
+                 style="font:inherit;font-size:var(--fs-2);color:var(--t1);background:var(--bg);border:1px solid var(--line-2);border-radius:9px;padding:6px 10px;width:min(240px,45vw)" /></div>
+        <div class="card-b" style="padding-top:0">
+          <template x-if="!memory"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-book"/></svg></span><div><b>Loading memory…</b></div></div></template>
+          <template x-if="memory"><div>
+            <div class="grid-even">
+              <div>
+                <div class="row-title" style="margin:8px 0 2px">Always in force</div>
+                <div class="faint" style="font-size:var(--fs-2)">Every run sees these lines. Constraints expire.</div>
+                <template x-if="!memory.profile.length"><div class="faint" style="font-size:var(--fs-2);margin-top:8px">Nothing yet. Tell the CEO a standing fact, decision or constraint, or add one here.</div></template>
+                <template x-for="n in memory.profile" :key="n.id">
+                  <div class="pi"><span class="tag" :class="{acc: n.kind === 'decision', soon: n.kind === 'constraint', violet: n.kind === 'preference'}" x-text="n.kind"></span>
+                    <div class="t"><span x-text="n.content"></span><span class="pr" x-text="(n.expires_at ? 'until ' + fmtDay(n.expires_at) + ' · ' : '') + ago(n.created_at)"></span></div>
+                    <button class="btn sm ghost" @click="removeNote(n)">Remove</button></div>
+                </template>
+                <form class="ntform" style="margin-top:10px" @submit.prevent="addNote()">
+                  <div class="two"><select x-model="newNote.kind"><option value="fact">Fact</option><option value="decision">Decision</option><option value="constraint">Constraint (expires)</option><option value="preference">Preference</option></select>
+                    <input type="number" min="1" max="3650" placeholder="Days (constraints)" x-model="newNote.days" /></div>
+                  <input type="text" maxlength="300" placeholder="One line Atlas should always keep in mind" x-model="newNote.content" required />
+                  <div class="actions" style="margin:0"><button class="btn sm primary" type="submit" :disabled="!newNote.content.trim()">Add</button></div>
+                </form>
+              </div>
+            </div>
+            <div class="row-title" style="margin:16px 0 2px" x-text="memory.query ? 'Facts matching “' + memory.query + '”' : 'Facts, newest first'"></div>
+            <div class="faint" style="font-size:var(--fs-2)">What the agents remembered. Correct one in your words, or make Atlas forget it.</div>
+            <template x-if="!memory.facts.length"><div class="faint" style="font-size:var(--fs-2);margin-top:8px">Nothing remembered yet.</div></template>
+            <template x-for="f in (memory.query || factsAll ? memory.facts : memory.facts.slice(0, 30))" :key="f.id">
+              <div class="pi">
+                <span class="k" aria-hidden="true" style="background:var(--t3)"></span>
+                <div class="t">
+                  <template x-if="!f._edit"><span x-text="f.content"></span></template>
+                  <template x-if="f._edit"><input type="text" x-model="f._draft" @keydown.enter.prevent="saveFact(f)" @keydown.escape="cancelEdit(f)" style="width:100%;font:inherit;font-size:var(--fs-2);color:var(--t1);background:var(--bg);border:1px solid var(--line-2);border-radius:8px;padding:6px 8px" /></template>
+                  <span class="pr" x-text="[f.source, ago(f.created_at), f.confidence < 1 ? 'confidence ' + Math.round(f.confidence * 100) + '%' : ''].filter(Boolean).join(' · ')"></span>
+                </div>
+                <button class="link" x-show="f.episode_id && !f._edit" @click="openTrace(f.episode_id)">Why?</button>
+                <template x-if="!f._edit"><span class="actions" style="margin:0"><button class="btn sm ghost" @click="f._draft = f.content; f._edit = true">Edit</button><button class="btn sm ghost" @click="forgetFact(f)">Forget</button></span></template>
+                <template x-if="f._edit"><span class="actions" style="margin:0"><button class="btn sm primary" @click="saveFact(f)">Save</button><button class="btn sm ghost" @click="f._edit = false">Cancel</button></span></template>
+              </div>
+            </template>
+            <button class="btn sm ghost" style="margin-top:8px" x-show="!memory.query && !factsAll && memory.facts.length > 30" @click="factsAll = true" x-text="'Show all ' + memory.facts.length"></button>
+            <form class="ntform" @submit.prevent="addFact()">
+              <input type="text" maxlength="2000" placeholder="Add a fact Atlas should remember" x-model="newFact" required />
+              <div class="actions" style="margin:0"><button class="btn sm primary" type="submit" :disabled="newFact.trim().length < 3">Remember</button></div>
+            </form>
+          </div></template>
+        </div>
+      </div>
+  </div>
+  <div class="sub" data-sub="people" x-show="sub.memory === 'people'">
+<div class="card" style="margin-top:16px">
+  <div class="card-h"><svg class="ic"><use href="#i-agents"/></svg><h2>People</h2><span class="badge" x-text="memory ? memory.people.length : 0"></span></div>
+  <div class="card-b" style="padding-top:0">
+    <template x-if="!memory"><div class="empty"><span class="ei"><svg class="ic"><use href="#i-agents"/></svg></span><div><b>Loading…</b></div></div></template>
+    <template x-if="memory"><div class="people-grid">
+                <div class="faint" style="font-size:var(--fs-2)">From config/context.yaml and what mail taught. Tier 1 answers today.</div>
+                <template x-if="!memory.people.length"><div class="faint" style="font-size:var(--fs-2);margin-top:8px">No one yet. Connect Gmail and mail learning fills this in.</div></template>
+                <template x-for="p in memory.people.slice(0, 40)" :key="p.name">
+                  <div class="pi"><span class="k" :class="{event: p.tier === 1, class: p.tier === 2}" aria-hidden="true"></span>
+                    <div class="t"><span x-text="p.name"></span><span class="pr" x-text="['tier ' + (p.tier || 3), p.org, p.project, p.note].filter(Boolean).join(' · ')"></span></div></div>
+                </template>
+    </div></template>
+  </div>
+</div>
+  </div>
+  <div class="sub" data-sub="projects" x-show="sub.memory === 'projects'">
+<div class="card">
+            <div class="card-h"><svg class="ic"><use href="#i-folder"/></svg><h2>Projects</h2><span class="badge" x-text="projects.length"></span></div>
+            <div class="card-b">
+              <template x-if="projectsErr && projects.length === 0">
+                <div class="empty" role="alert"><span class="ei"><svg class="ic"><use href="#i-alert"/></svg></span><div><b>Projects did not load.</b><span x-text="projectsErr"></span></div></div>
+              </template>
+              <template x-if="!projectsErr && projectsLoaded && projects.length === 0">
+                <div class="empty"><span class="ei"><svg class="ic"><use href="#i-folder"/></svg></span><div><b>No active projects.</b>Deploy loads them; run python -m scripts.seed_projects if this stays empty.</div></div>
+              </template>
+              <template x-for="p in projects.slice(0, 7)" :key="p.id">
+                <div class="proj">
+                  <span class="k" :style="'background:' + kindColor(p.kind)"></span>
+                  <div class="grow"><div class="nm" x-text="p.name"></div><div class="na clamp2" x-text="p.next_action || p.objective || 'No next action set'"></div></div>
+                  <div style="text-align:right"><span class="tag" x-text="'P' + p.priority"></span>
+                    <div class="faint" style="font-size:var(--fs-2);margin-top:4px" x-show="p.next_action_due" x-text="dueLabel(p.next_action_due)"></div></div>
+                </div>
+              </template>
+            </div>
+          </div>
+  </div>
+  <div class="sub" data-sub="map" x-show="sub.memory === 'map'">
+<div class="card graph-card" id="graph">
+          <div class="card-h"><svg class="ic"><use href="#i-graph"/></svg><h2>Knowledge graph</h2><span class="badge" x-text="graph.nodes.length"></span><span class="grow"></span><span class="faint" style="font-size:var(--fs-2)">Click a node to ask about it</span></div>
+          <div class="legend" x-show="graphLegend && graphLegend.length">
+            <template x-for="item in graphLegend" :key="item.type"><span><i :style="`background:${item.color}`"></i><span x-text="item.type"></span></span></template>
+          </div>
+          <div class="graph-wrap">
+            <svg class="graph-svg" x-ref="graphSvg" viewBox="0 0 900 600" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Knowledge graph">
+              <defs><marker id="arrowhead" viewBox="-1 -3 7 6" refX="0" refY="0" markerWidth="5" markerHeight="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M 0 -2.4 L 5 0 L 0 2.4" fill="currentColor" opacity="0.4"/></marker></defs>
+            </svg>
+            <template x-if="graph.nodes.length === 0"><div class="graph-empty">The graph is empty. Talk to the CEO and your world starts drawing itself here.</div></template>
+          </div>
+        </div>
+  </div>
+</section>

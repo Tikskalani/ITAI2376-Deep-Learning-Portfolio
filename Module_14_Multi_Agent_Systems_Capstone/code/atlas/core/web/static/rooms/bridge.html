@@ -1,0 +1,41 @@
+<section class="room bridge nc" data-room="bridge" x-show="room === 'bridge'" x-cloak aria-label="Today" id="nc">
+  <canvas id="nc-cv" aria-label="Atlas's agents around a neural network, exchanging messages"></canvas>
+  <div id="nc-agents"></div>
+  <div class="nc-tip nc-glass" id="nc-tip" role="tooltip"><b id="nc-tn"></b><em id="nc-ts"></em><p id="nc-tl"></p></div>
+  <div class="nc-ui">
+    <div class="nc-top">
+      <div>
+        <div class="nc-hi" id="nc-greet">GOOD DAY, TRILOK</div>
+        <h1 class="nc-h1" id="nc-h1">Reading the day.</h1>
+        <p class="nc-sub" id="nc-sub"><i>●</i> CONNECTING</p>
+      </div>
+    </div>
+
+    <aside class="nc-side" aria-label="Decisions and coordination">
+      <section class="nc-glass nc-need" id="nc-need" aria-live="polite">
+        <div class="nc-tag"><i></i><b id="nc-tagt" style="font-weight:400">NEEDS YOUR YES</b><span id="nc-exp"></span></div>
+        <h2 id="nc-title"></h2>
+        <p id="nc-preview"></p>
+        <p class="nc-err" id="nc-err" role="alert" hidden></p>
+        <div class="nc-hold" id="nc-hold">
+          <button class="nc-auth" id="nc-auth" aria-label="Hold to authorize, or press Enter"><span class="nc-ring" id="nc-ring"></span><span>Hold to authorize<small>Hold the button or the A key for a second</small></span></button>
+          <div class="nc-alt"><a href="#edit" id="nc-edit" hidden>EDIT FIRST</a><button type="button" class="nc-decline" id="nc-decline">DECLINE</button></div>
+        </div>
+        <div class="nc-sent" role="status"><span class="nc-ok"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="#5CF2B0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><b id="nc-sentb">Authorized</b><small id="nc-sents"></small></div><button type="button" id="nc-undo" hidden>UNDO</button></div>
+        <div class="nc-looks" id="nc-looks" hidden></div>
+        <div class="nc-second" id="nc-second" hidden><div><b id="nc-2t"></b><small id="nc-2s"></small></div><button type="button" id="nc-2b">REVIEW</button></div>
+      </section>
+      <section class="nc-glass nc-feedbox" aria-label="Coordination feed">
+        <div class="nc-fh"><i></i>AGENT COORDINATION<button class="nc-pb" id="nc-pause" aria-pressed="false">PAUSE</button></div>
+        <p class="nc-hint">Each glowing packet on the map is one of these messages. Hover an agent to see what it is doing.</p>
+        <ul class="nc-feed" id="nc-feed"></ul>
+      </section>
+    </aside>
+
+    <label class="nc-ask nc-glass" id="nc-ask"><input id="nc-askin" type="text" placeholder="Ask or tell Atlas anything" aria-label="Ask or tell Atlas anything" autocomplete="off" /><kbd>ENTER</kbd></label>
+    <div class="nc-q nc-q1"><p></p><small></small></div>
+    <div class="nc-q nc-q2"><p></p><small></small></div>
+    <div class="nc-q nc-q3"><p></p><small></small></div>
+    <div class="nc-demo" id="nc-demo" hidden>Demo data, nothing here is real.</div>
+  </div>
+</section>

@@ -1,0 +1,39 @@
+# The resume engine (core/resume_engine/bridge.py): which model runs each stage,
+# how long a page is, and how much room a reply gets. Read once per run.
+#
+# tier: scan (Haiku 5.5), specialist (Sonnet 5.5) or ceo (Opus 5.5), as set in .env.
+# provider: anthropic is the only one wired today; the field is here so a cheaper
+# provider can take a stage later without touching code.
+# A stage whose call fails is tried once more on fallback_tier (inside the run
+# cap); the run result names every stage that fell back.
+stages:
+  diagnose: {tier: scan}        # recruiter review of each line, and the questions for you
+  keywords: {tier: scan}        # the posting's requirements, and which your resume shows
+  cut: {tier: scan}             # which bullets to drop to fit the page
+  audit: {tier: scan}           # model fact-check of every rewritten line and text
+  rewrite: {tier: specialist, cache_until: "REVIEWER NOTES PER ID:"}   # the lines that go out under your name
+  repair: {tier: specialist}    # a rewrite retried with the reasons it failed
+  judge: {tier: specialist, cache_until: "=== A ==="}   # blind before/after review; a worse draft never ships
+default: {tier: scan}           # a stage this file does not name yet
+fallback_tier: scan
+# cache_until: the text that ends the prefix a stage's calls share. The rewrite and
+# its retry share the posting, playbook and resume; the judge's two orderings share
+# the posting and instructions. The shared part is cached (5 minutes) and the
+# stage's first call runs alone so the others read it. The engine's system prompts
+# are too short to cache on their own (40 to 70 tokens; the minimum is 512).
+
+# Whether the daily apply queue drafts resumes with the engine (optimize_resume).
+# Off: the career agent writes them by hand as before, and uses the engine only
+# when Trilok asks. A full queue of five would cost about $0.60 a day, inside
+# ATLAS_RESUME_DAILY_USD_CAP.
+nightly: false
+
+# One page of resume_pdf holds about 590 to 645 words at the sizes it tries
+# (the career agent's one-page drafts). The engine cuts to this budget and may
+# leave up to 40 words over it, so 580 lands near 600 at most. A draft that
+# still renders past one page is refused with the reason.
+page_words: 580
+
+# Added to each call's max_tokens: the 5.5 models count their reasoning in the
+# output budget (APEX sent the same headroom). The cap reservation counts it too.
+thinking_headroom_tokens: 8000
